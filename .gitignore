@@ -3,23 +3,35 @@ __pycache__/
 *.pyc
 *.pyo
 *.pyd
-*.DS_Store
+.DS_Store
 
-# Virtual environment
+# Virtual environments
 .venv/
 venv/
 env/
-helemt
+helmet/
+
+# Secrets
+.env
 
 # Jupyter Notebook checkpoints
 .ipynb_checkpoints/
 
-# Training & detection results
+# Dataset (download from Roboflow, see README). Only the config is tracked.
+data/*
+!data/data.yaml
+
+# Training & detection outputs
 runs/
 results/
 light_bundles/
 
-# Streamlit cache
+# Downloaded pretrained weights (Ultralytics saves them in the working dir)
+yolov8*.pt
+yolo11*.pt
+yolo26*.pt
+
+# Streamlit local config
 .streamlit/
 
 # IDE / OS files
@@ -27,5 +39,3 @@ light_bundles/
 .idea/
 *.swp
 Thumbs.db
-
-data/

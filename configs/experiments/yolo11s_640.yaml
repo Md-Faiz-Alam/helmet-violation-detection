@@ -1,0 +1,3 @@
+# YOLO11 small.
+_base_: ../base.yaml
+weights: yolo11s.pt

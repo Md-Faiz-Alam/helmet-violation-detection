@@ -1,0 +1,14 @@
+# Shared training settings. Each file in configs/experiments/ overrides only what it changes.
+# Keys under `train:` are passed straight to Ultralytics model.train().
+data: data/data.yaml
+weights: yolov8s.pt
+train:
+  epochs: 50
+  patience: 15
+  imgsz: 640
+  batch: 16
+  optimizer: AdamW
+  lr0: 0.001
+  seed: 42
+  deterministic: true
+  plots: true

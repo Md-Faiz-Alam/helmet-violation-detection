@@ -1,0 +1,5 @@
+# Native resolution: images are 416x416, so 640 only upscales them.
+_base_: ../base.yaml
+weights: yolov8s.pt
+train:
+  imgsz: 416

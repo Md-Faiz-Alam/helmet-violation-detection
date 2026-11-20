@@ -1,0 +1,3 @@
+# YOLO26 nano: NMS-free, designed for CPU/edge inference.
+_base_: ../base.yaml
+weights: yolo26n.pt

@@ -1,0 +1,3 @@
+# Smaller/faster v8 to measure the speed-accuracy trade-off.
+_base_: ../base.yaml
+weights: yolov8n.pt

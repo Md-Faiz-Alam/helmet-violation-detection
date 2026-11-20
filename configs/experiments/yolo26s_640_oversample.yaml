@@ -1,0 +1,6 @@
+# YOLO26s trained on an oversampled train set: images containing 'Without Helmet'
+# are repeated so the violation class is seen ~as often as 'With Helmet'.
+# Create the data file first: python scripts/make_oversampled_split.py
+_base_: ../base.yaml
+weights: yolo26s.pt
+data: data/data_oversampled.yaml

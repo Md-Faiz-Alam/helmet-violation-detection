@@ -1,0 +1,3 @@
+# YOLO26 small.
+_base_: ../base.yaml
+weights: yolo26s.pt

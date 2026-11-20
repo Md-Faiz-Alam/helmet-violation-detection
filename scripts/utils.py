@@ -1,30 +1,56 @@
 import os
 import zipfile
-import cv2
-import matplotlib.pyplot as plt
+from pathlib import Path
+
+import torch
+import yaml
+
+IMAGE_EXTS = (".jpg", ".jpeg", ".png", ".bmp", ".webp")
+VIDEO_EXTS = (".mp4", ".avi", ".mov", ".mkv")
+DEFAULT_THRESHOLDS = "configs/thresholds.yaml"
+
+
+def load_thresholds(path=DEFAULT_THRESHOLDS):
+    """Per-class confidence thresholds {class name: threshold}, or None if the file doesn't exist."""
+    if not path or not os.path.exists(path):
+        return None
+    with open(path, encoding="utf-8") as f:
+        return {str(k): float(v) for k, v in yaml.safe_load(f)["thresholds"].items()}
+
+
+def apply_thresholds(result, thresholds, default=0.25):
+    """Keep only boxes whose confidence >= their class threshold. Returns a filtered Ultralytics Results."""
+    if not len(result.boxes):
+        return result
+    thr = torch.tensor(
+        [thresholds.get(result.names[int(c)], default) for c in result.boxes.cls],
+        device=result.boxes.conf.device,
+    )
+    return result[result.boxes.conf >= thr]
+
+
+def list_images(source, limit=0):
+    """Return image paths from a file or folder (sorted), optionally limited to the first `limit` images."""
+    source = Path(source)
+    if source.is_file():
+        return [str(source)]
+    if not source.is_dir():
+        raise FileNotFoundError(f"Source not found: {source}")
+    images = sorted(str(p) for p in source.iterdir() if p.suffix.lower() in IMAGE_EXTS)
+    if not images:
+        raise FileNotFoundError(f"No images found in: {source}")
+    return images[:limit] if limit > 0 else images
+
 
 def create_light_bundle(run_folder, bundle_dir="light_bundles"):
-    """Create a light bundle (zip) of prediction images."""
+    """Zip all prediction images/videos of a run into a single shareable file."""
     os.makedirs(bundle_dir, exist_ok=True)
-    bundle_name = f"bundle_{os.path.basename(run_folder)}.zip"
-    bundle_path = os.path.join(bundle_dir, bundle_name)
+    bundle_path = os.path.join(bundle_dir, f"bundle_{os.path.basename(run_folder)}.zip")
 
-    with zipfile.ZipFile(bundle_path, "w") as zipf:
+    with zipfile.ZipFile(bundle_path, "w", zipfile.ZIP_DEFLATED) as zipf:
         for root, _, files in os.walk(run_folder):
             for file in files:
-                if file.lower().endswith((".jpg", ".png")):
+                if file.lower().endswith(IMAGE_EXTS + VIDEO_EXTS):
                     zipf.write(os.path.join(root, file), arcname=file)
 
     return bundle_path
-
-
-def plot_sample_image(image_path, title="Sample Detection Overlay"):
-    """Plot a sample image using matplotlib."""
-    img = cv2.imread(image_path)
-    img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-
-    plt.figure(figsize=(8, 6))
-    plt.imshow(img)
-    plt.axis("off")
-    plt.title(title)
-    plt.show()
