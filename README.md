@@ -148,7 +148,7 @@ python scripts/benchmark.py                    # -> reports/model_comparison.md
 ```
 - Runs are saved to `results/train/<experiment>/`. Add `--promote` to copy the best weights to `models/best.pt`, which the app uses.
 - No GPU? Run [notebook/experiments_kaggle.ipynb](notebook/experiments_kaggle.ipynb) on Kaggle (free GPU, 30 h/week). It trains all experiments in one background run and saves the results as the notebook's Output.
-- Experiment tracking: `pip install mlflow`. Ultralytics then logs every run to MLflow automatically; browse them with `mlflow ui`.
+- Experiment tracking: `pip install mlflow`, then set `MLFLOW_TRACKING_URI=sqlite:///mlflow.db`. Ultralytics logs every run to MLflow automatically; browse them with `mlflow ui --backend-store-uri sqlite:///mlflow.db`.
 
 ---
 
