@@ -1,0 +1,10 @@
+# Lint settings (run: ruff check .). CI fails on any finding.
+line-length = 120
+target-version = "py311"
+extend-exclude = ["notebook"]
+
+[lint]
+# E/W: pycodestyle, F: pyflakes (undefined names, unused imports), B: bugbear (likely bugs)
+select = ["E", "F", "W", "B"]
+# Long lines are mostly Markdown report templates inside f-strings, where wrapping would change the output
+ignore = ["E501"]

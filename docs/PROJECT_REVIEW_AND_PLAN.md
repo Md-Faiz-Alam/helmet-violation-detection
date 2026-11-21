@@ -85,7 +85,8 @@ Optional follow-ups:
 - [ ] Package layout: `src/helmet_detection/`, `api/`, `app/`, `configs/`, `tests/`
 - [ ] FastAPI service: `/detect`, `/detect/video`, `/violations`, `/health`
 - [ ] ONNX (+ INT8) export with a speed benchmark table (PyTorch vs ONNX, CPU FPS)
-- [ ] Docker + docker-compose; pytest; GitHub Actions CI (ruff + tests)
+- [x] pytest (unit + `-m smoke` end-to-end) and GitHub Actions CI (ruff, unit tests, smoke tests on CPU); AGPL-3.0 LICENSE (required by Ultralytics)
+- [ ] Docker + docker-compose
 - [ ] Weights on the Hugging Face Hub instead of git; live demo on Hugging Face Spaces
 
 ## Phase 4: Small GenAI touch (optional)

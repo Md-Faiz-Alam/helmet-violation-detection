@@ -160,7 +160,7 @@ def run(args):
             tracked = []
             if r.boxes.id is not None:
                 for tid, c, conf, box in zip(r.boxes.id.int().tolist(), r.boxes.cls.int().tolist(),
-                                             r.boxes.conf.tolist(), r.boxes.xyxy.tolist()):
+                                             r.boxes.conf.tolist(), r.boxes.xyxy.tolist(), strict=True):
                     tracked.append((tid, r.names[c], conf, box))
 
             for tid, cls_name, conf, (x1, y1, x2, y2) in tracked:  # frame = 1-based index in the source video
@@ -180,7 +180,7 @@ def run(args):
                     del plate_frames[tid]  # decided, not a violation: free the memory
 
             # Keep the most confident no-helmet crop of every track for its snapshot
-            for tid, cls_name, conf, box in tracked:
+            for tid, cls_name, _conf, box in tracked:
                 st = tracker.tracks[tid]
                 if cls_name == VIOLATION_CLASS and st.best_violation_frame == processed:
                     best_crops[tid] = context_crop(frame, box)

@@ -33,7 +33,7 @@ GRID = {
 def detect_vehicles(coco, items, device):
     for it in items:
         r = coco.predict(it["path"], conf=0.1, device=device, verbose=False)[0]
-        it["vehicles"] = [(tuple(b), float(s)) for c, s, b in zip(r.boxes.cls, r.boxes.conf, r.boxes.xyxy.tolist())
+        it["vehicles"] = [(tuple(b), float(s)) for c, s, b in zip(r.boxes.cls, r.boxes.conf, r.boxes.xyxy.tolist(), strict=True)
                           if r.names[int(c)] in VEHICLE_CLASSES]
 
 
@@ -109,7 +109,7 @@ def main(args):
     # Tune on val: best no-helmet F2, ties broken by With Helmet F1
     best = None
     for combo in itertools.product(*GRID.values()):
-        rule = AssociationRule(**dict(zip(GRID, combo)))
+        rule = AssociationRule(**dict(zip(GRID, combo, strict=True)))
         s = scores(filtered(data["val"], rule, min_conf), thresholds, names)
         key = (round(s[names[v]]["F"], 4), round(s[names[safe]]["F"], 4))
         if best is None or key > best[0]:

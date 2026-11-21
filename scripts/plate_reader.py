@@ -24,9 +24,12 @@ from association import VEHICLE_CLASSES, AssociationRule, associate
 from plates import plate_candidates, vote
 
 
+# Looser vehicle confidence than the default rule: a partly cropped bike is still the rider's bike
+PLATE_RULE = AssociationRule(vehicle_conf=0.15)
+
+
 class PlateReader:
-    def __init__(self, vehicle_weights="yolo26s.pt", fmt="india", device=None, rule=AssociationRule(vehicle_conf=0.15),
-                 min_region_height=320):
+    def __init__(self, vehicle_weights="yolo26s.pt", fmt="india", device=None, rule=PLATE_RULE, min_region_height=320):
         from rapidocr_onnxruntime import RapidOCR  # imported here so the rest of the project works without it
 
         self.ocr = RapidOCR()
@@ -49,7 +52,7 @@ class PlateReader:
 
     def _vehicle_for(self, crop, head):
         r = self.vehicles.predict(crop, conf=self.rule.vehicle_conf, device=self.device, verbose=False)[0]
-        vehicles = [(tuple(b), float(s)) for c, s, b in zip(r.boxes.cls, r.boxes.conf, r.boxes.xyxy.tolist())
+        vehicles = [(tuple(b), float(s)) for c, s, b in zip(r.boxes.cls, r.boxes.conf, r.boxes.xyxy.tolist(), strict=True)
                     if r.names[int(c)] in VEHICLE_CLASSES]
         j = associate([head], vehicles, self.rule)[0]
         return vehicles[j][0] if j >= 0 else None

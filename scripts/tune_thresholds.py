@@ -47,7 +47,7 @@ def table(items, names, thresholds, betas):
 
 def fmt(rows, betas):
     out = ["| Class | Threshold | Precision | Recall | F-score | TP | FP | FN |", "|---|---|---|---|---|---|---|---|"]
-    for (name, t, p, r, f, tp, fp, fn), b in zip(rows, betas):
+    for (name, t, p, r, f, tp, fp, fn), b in zip(rows, betas, strict=True):
         out.append(f"| {name} | {t:.2f} | {p:.3f} | {r:.3f} | {f:.3f} (F{b:g}) | {tp} | {fp} | {fn} |")
     return "\n".join(out)
 

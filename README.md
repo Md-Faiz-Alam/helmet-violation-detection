@@ -1,5 +1,8 @@
 # 🪖 Helmet Detection with YOLO
 
+[![CI](https://github.com/Md-Faiz-Alam/helmet_detection/actions/workflows/ci.yml/badge.svg)](https://github.com/Md-Faiz-Alam/helmet_detection/actions/workflows/ci.yml)
+[![License: AGPL-3.0](https://img.shields.io/badge/license-AGPL--3.0-blue.svg)](LICENSE)
+
 Detects riders (motorcycles and bicycles) **with** and **without** helmets in images and videos using a fine-tuned **YOLO26s** model, chosen from 7 trained candidates. It includes evaluation, model comparison, threshold tuning, error analysis and experiment tooling, plus a **Streamlit** web app.
 
 > The class that matters most for road safety is **Without Helmet** (the violation). Missing a violator costs more than a false alarm, so this project optimizes and reports that class separately.
@@ -106,7 +109,10 @@ Helmet_Detection/
 ├── samples/                        # demo images for the app
 ├── docs/PROJECT_REVIEW_AND_PLAN.md # roadmap
 ├── requirements.txt
-├── requirements-dev.txt            # + pytest
+├── requirements-dev.txt            # + pytest, ruff
+├── ruff.toml / pytest.ini          # lint and test settings
+├── .github/workflows/ci.yml        # CI: lint, unit tests, smoke tests
+├── LICENSE                         # AGPL-3.0
 ├── packages.txt                    # system packages for Streamlit Cloud
 └── .env.example                    # environment variables
 ```
@@ -216,11 +222,14 @@ Same clip at two resolutions (5 riders without a helmet):
 
 Outputs in `results/video/<name>_<timestamp>/`: `annotated.mp4`, `tracks.csv` (one row per track, with plate), `violations/` (one snapshot per violator, captioned with its plate, plus the plate crop) and `summary.json` (counts + violation log). Speed on CPU (i7-7700K): about **10 FPS** for tracking at 640 px, about 7 FPS with plate reading (plates are read only for violators, once they leave the frame); use `--vid-stride 2` or `3` for real-time on longer videos.
 
-### Tests
+### Tests and lint
 ```bash
 pip install -r requirements-dev.txt
-pytest
+ruff check .          # lint (rules in ruff.toml)
+pytest                # unit tests: tracking votes, plate rules, association, video scoring (~3 s, no model)
+pytest -m smoke       # end-to-end: the real model through detect.py, track_video.py and the app (~20 s on CPU)
 ```
+GitHub Actions ([.github/workflows/ci.yml](.github/workflows/ci.yml)) runs lint + unit tests on every push and pull request, then the smoke tests with CPU-only PyTorch.
 
 ### Evaluate and analyse
 ```bash
@@ -258,3 +267,13 @@ See [docs/PROJECT_REVIEW_AND_PLAN.md](docs/PROJECT_REVIEW_AND_PLAN.md).
 
 - [Ultralytics](https://github.com/ultralytics/ultralytics) (YOLOv8 / YOLO11 / YOLO26)
 - [Roboflow Universe](https://universe.roboflow.com/), the Bike Helmet Detection dataset by Syed Salman Reza (Public Domain)
+- [Pexels](https://www.pexels.com/video/34395449/), test video by Aamir Somewhere (Pexels license; not redistributed here, downloaded by URL)
+- [RapidOCR](https://github.com/RapidAI/RapidOCR) (PaddleOCR models on ONNX Runtime) and [ByteTrack](https://github.com/ifzhang/ByteTrack) via Ultralytics
+
+---
+
+## 📄 License
+
+[AGPL-3.0](LICENSE). This project is built on [Ultralytics](https://github.com/ultralytics/ultralytics), which is AGPL-3.0, so the code here (and any service that runs it for other people, such as a hosted demo or API) is shared under the same license. The dataset is Public Domain; the test video keeps its own Pexels license.
+
+**Responsible use:** number plates and faces are personal data. Plate reading is best effort (see the video results above) and meant as evidence for a human reviewer, not for automatic fines. Keep outputs private and blur faces and plates in public demos.
