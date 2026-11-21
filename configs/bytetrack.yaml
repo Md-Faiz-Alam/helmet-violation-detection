@@ -1,0 +1,11 @@
+# ByteTrack settings for scripts/track_video.py (Ultralytics tracker format).
+# Changed from the Ultralytics defaults so tracking agrees with configs/thresholds.yaml:
+# our tuned "Without Helmet" threshold is 0.16, so a head detected at 0.16-0.25 must still be
+# able to start and keep a track (the defaults would drop it below 0.25).
+tracker_type: bytetrack
+track_high_thresh: 0.16 # first-stage matching (default 0.25)
+track_low_thresh: 0.1   # second-stage matching keeps weak detections attached to existing tracks
+new_track_thresh: 0.2   # start a new track (default 0.25)
+track_buffer: 30        # frames a lost track is kept (about 1 s at 30 FPS) before its ID is dropped
+match_thresh: 0.8
+fuse_score: true

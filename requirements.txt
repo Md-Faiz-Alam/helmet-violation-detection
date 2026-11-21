@@ -7,3 +7,6 @@ opencv-python==5.1.0.95
 pillow==13.0.0
 numpy==2.5.5
 pyyaml==6.0.3
+lap==0.5.14             # ByteTrack matching (scripts/track_video.py)
+rapidocr_onnxruntime==1.2.3  # number-plate OCR (bundled PP-OCRv3 models; uses opencv-python, not headless)
+onnxruntime==1.32.0

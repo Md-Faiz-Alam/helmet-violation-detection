@@ -39,3 +39,6 @@ yolo26*.pt
 .idea/
 *.swp
 Thumbs.db
+
+# Video ground-truth review images (faces; regenerate with scripts/video_gt_draft.py)
+eval/video_gt/review_*/

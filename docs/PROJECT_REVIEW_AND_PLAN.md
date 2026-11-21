@@ -24,7 +24,7 @@ Rename only once the project actually detects violations in video.
 
 First baseline (YOLOv8s, 30 epochs) for comparison: Without Helmet mAP50 0.799, recall 0.721, all mAP50 0.873.
 
-**Main remaining weakness:** false alarms on unlabeled pedestrians/bystanders (the model doesn't know who is riding), and small *With Helmet* heads (val recall 0.69 below 32 px).
+**Main remaining weakness:** false alarms in crowds around bikes (people standing with bicycles, unlabeled pillion riders), and small *With Helmet* heads (val recall 0.69 below 32 px). Pedestrian false alarms mostly disappeared with the new model (66 → 18 on val).
 
 **Dataset caveats:** the 3,546 training images are Roboflow augmentations of far fewer originals, and the valid/test sets are small (126/63 images), so metrics are noisy.
 
@@ -64,13 +64,21 @@ Optional follow-ups:
 - [ ] Merge a second helmet dataset with more violators and night/CCTV images
 - [ ] Re-run the training notebook on Kaggle so its Step 6 test-set outputs are saved
 
-## Phase 2: Video system ⭐
+## Phase 2: Video system ⭐ in progress
 
-- [ ] Video/RTSP processing with ByteTrack, so each rider is counted once
-- [ ] Head-to-vehicle association: count a head only if it sits above a detected bicycle/motorcycle (fixes the pedestrian false alarms found in Phase 1)
-- [ ] Violation logic: flag "no helmet" only if it persists for N frames
-- [ ] Number-plate detection + OCR (PaddleOCR/EasyOCR) for violators
-- [ ] Violation log (SQLite): timestamp, track ID, snapshot, plate text, confidence
+- [x] Video/webcam/RTSP processing with ByteTrack, so each rider is counted once (`scripts/track_video.py`, ~9 FPS on CPU)
+- [x] Head-to-vehicle association (`scripts/association.py`, unit-tested) evaluated as a false-alarm filter (`scripts/eval_association.py` → `reports/association.md`): 16 of 19 remaining no-helmet false alarms on val already sit on/next to a bike, so the best filter removes 3 false alarms but costs real violators → **not used as a filter**. Kept for linking a violator to their vehicle (plate OCR)
+- [ ] Optional: a temporal version for video (a pedestrian walks beside bikes, a rider moves with one), once there is a clip with pedestrians to measure it
+- [x] Violation logic: per-track voting with tuned thresholds (≥5 no-helmet votes and ≥60% of votes), decided when the track ends so ID switches and early frames can't lock in a wrong verdict; border-cut heads don't vote (`scripts/tracking.py`, unit-tested)
+- [x] Tested on real footage (Pexels Indian-highway clip, 14 s): fixed duplicate logs (same head boxed as both classes) with class-agnostic NMS before tracking
+- [x] **Video evaluation set**: every rider of the clip hand-labelled (`eval/video_gt/`, drafted with `scripts/video_gt_draft.py`, corrected by eye), scored per rider by `scripts/eval_video.py` → `reports/video_eval.md`. Reviewed by the project owner (added 2 missed riders, corrected 1 label): 16 riders, 12 violators. Result (720p): violation precision 5/5, **recall 5/12**; 1080p: 4/4 and 4/12. Of 7 misses: 4 wear headwear (white skullcaps, cloth cap, head cloth) read as a helmet, 2 are far riders (~24-27 px heads), 1 has his head cut by the frame edge
+- [ ] **Top priority for the model: non-helmet headwear.** Add labelled images of caps, skullcaps and scarves as "Without Helmet" (decide a policy for turbans, which Indian law exempts), retrain, and re-run `eval_video.py` to show the recall change
+- [ ] Add 2-3 more labelled clips (night, rear view, crowded junction, pedestrians) so the video numbers are not from one 14 s clip
+- [x] Number-plate reading for violators (`scripts/plate_reader.py` + `scripts/plates.py`, unit-tested): 5 closest frames → rider's vehicle (COCO + association) → RapidOCR (PP-OCRv3, onnxruntime) → Indian-format validation with positional look-alike fixes → vote, reported only if ≥2 frames agree
+  - Result on the highway clip: 720p 0 correct / 1 wrong / 4 unread; 1080p 1 correct / 1 wrong / 3 unread. The wrong one (`MP04ZD7116` → `MP02ZD7116`) happens even at 286 px and sharp, so the general OCR model is a limit, not only image quality
+  - Split helmet/no-helmet votes (≥40% no-helmet) are now **Uncertain** instead of "With Helmet" (found on the 1080p run: a white-skullcap rider at 17 vs 16 votes)
+- [ ] Plate-specific recognizer (e.g. fast-plate-ocr, ONNX): measure on the same saved plate crops before switching. Needs care: it depends on opencv-python-headless, which breaks `--show` when installed next to opencv-python
+- [ ] Violation log (SQLite): timestamp, track ID, snapshot, plate text, confidence (today: `tracks.csv` + snapshots + `summary.json`)
 
 ## Phase 3: Engineering & deployment ⭐
 
@@ -94,4 +102,7 @@ Optional follow-ups:
 
 ## Resume line (fill in real numbers as you go)
 
-> Built a helmet-violation detection system (YOLO + ByteTrack + plate OCR). I raised no-helmet recall on a held-out test set from 74% to 87% while cutting false alarms 3× (model selection across 7 YOLOv8/YOLO11/YOLO26 experiments, class rebalancing and validation-tuned per-class thresholds), and exported to ONNX for X× faster CPU inference (XX FPS). Deployed with FastAPI, Docker and CI, with a live demo on Hugging Face Spaces.
+> Built a helmet-violation detection system (YOLO + ByteTrack + plate OCR). On a held-out image test set I raised no-helmet recall from 74% to 87% while cutting false alarms 3× (model selection across 7 YOLOv8/YOLO11/YOLO26 experiments, class rebalancing, validation-tuned thresholds). Built a per-rider video benchmark with hand-labelled ground truth, which showed 100% violation precision but 42% recall and traced most misses to non-helmet headwear, a training-data gap [then: fixed it to XX%]. Exported to ONNX for X× faster CPU inference; FastAPI, Docker, CI, live demo on Hugging Face Spaces.
+
+_Only claim what is measured: video recall is from one 14 s clip (12 violators), so say so if asked._
+    

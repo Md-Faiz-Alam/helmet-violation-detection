@@ -51,7 +51,8 @@ The better model catches slightly more violators with about **3× fewer false al
 
 ### What the analysis found
 
-- **The remaining "false alarms" are mostly pedestrians and bystanders without helmets.** The dataset only labels riders, so the model has no notion of who is *riding*. The new model cut no-helmet background false alarms on val from 66 to 18. Next fix: associate heads with a detected bike or motorcycle (video system, below). [Error analysis](reports/error_analysis.md)
+- **Most pedestrian false alarms are gone.** The dataset only labels riders, so the first model flagged pedestrians and bystanders (66 no-helmet background false alarms on val). The new model cut that to 18. [Error analysis](reports/error_analysis.md)
+- **A "head must be on a vehicle" filter was tested and rejected.** A COCO detector finds bicycles/motorcycles, and a head counts only if it sits where a rider's head would be (geometry measured on train, limits tuned on val). On val, 16 of the 19 remaining no-helmet false alarms already sit on or right next to a bike: crowds at bike events, people standing with their bicycles, unlabeled pillion riders. The best filter removed 3 false alarms but also dropped real violators, so it is off. The same association is reused to find a violator's vehicle for plate reading. [Association report](reports/association.md)
 - **Small heads improved most:** no-helmet recall on heads under 32 px went from 0.75 to 0.90 (val).
 - **Trade-off:** oversampling shifted the model toward the violation class. Missed *With Helmet* heads on val rose from 16 to 22, mostly small ones (recall 0.69 below 32 px).
 - **Typical misses:** riders seen from behind in crowded scenes, and face coverings or goggles that look like a helmet.
@@ -72,16 +73,26 @@ Helmet_Detection/
 ├── configs/
 │   ├── base.yaml                   # shared training recipe
 │   ├── experiments/*.yaml          # one file per experiment (YOLOv8 / YOLO11 / YOLO26, imgsz, oversampling)
-│   └── thresholds.yaml             # tuned per-class confidence thresholds
+│   ├── thresholds.yaml             # tuned per-class confidence thresholds
+│   └── bytetrack.yaml              # tracker settings, aligned with the tuned thresholds
 ├── scripts/
 │   ├── train.py                    # config-driven training
 │   ├── evaluate.py                 # per-class metrics + confusion matrix / PR curves
 │   ├── tune_thresholds.py          # per-class threshold tuning (val) + test report
 │   ├── error_analysis.py           # error breakdown, recall by object size, image gallery
+│   ├── association.py              # head-to-vehicle geometry (which bike is this head on?)
+│   ├── plate_reader.py             # violator's vehicle -> OCR -> plate text (RapidOCR, CPU)
+│   ├── plates.py                   # plate format rules, look-alike fixes, voting (unit-tested)
+│   ├── eval_association.py         # tests a head-on-vehicle filter on val/test -> reports/association.md
 │   ├── dataset_audit.py            # split composition (motorcycle/bicycle) + recall per vehicle type
 │   ├── benchmark.py                # model comparison: accuracy, size, CPU latency
 │   ├── make_oversampled_split.py   # oversample violation images (class imbalance)
-│   ├── detect.py                   # inference on an image, folder, or video
+│   ├── detect.py                   # inference on an image, folder, or video (frame by frame)
+│   ├── track_video.py              # video/webcam/RTSP: ByteTrack tracking + one decision per rider
+│   ├── eval_video.py               # scores a video run per rider against hand-labelled ground truth
+│   ├── video_gt_draft.py           # drafts video ground truth from a run, for a human to correct
+│   ├── review_gt.py                # renders ground truth as review sheets (one row per rider)
+│   ├── tracking.py                 # per-track voting and violation rule (pure Python, unit-tested)
 │   ├── metrics.py                  # shared prediction-to-ground-truth matching
 │   └── utils.py                    # helpers
 ├── notebook/
@@ -90,9 +101,12 @@ Helmet_Detection/
 ├── reports/                        # generated analysis reports + error gallery
 ├── models/best.pt                  # trained weights, YOLO26s (20 MB)
 ├── data/data.yaml                  # dataset config (images are downloaded separately)
+├── eval/video_gt/                  # hand-checked video ground truth (YAML; videos are downloaded separately)
+├── tests/                          # pytest unit tests
 ├── samples/                        # demo images for the app
 ├── docs/PROJECT_REVIEW_AND_PLAN.md # roadmap
 ├── requirements.txt
+├── requirements-dev.txt            # + pytest
 ├── packages.txt                    # system packages for Streamlit Cloud
 └── .env.example                    # environment variables
 ```
@@ -153,12 +167,69 @@ python scripts/detect.py --source path/to/video.mp4                # video
 ```
 Annotated outputs go to `results/detect/run_<timestamp>/`, and a zip of them goes to `light_bundles/`.
 
+### Video: track riders and flag violations
+`detect.py` labels every frame on its own, so one rider becomes hundreds of detections. `track_video.py` follows each head with **ByteTrack** and makes **one decision per rider**:
+```bash
+python scripts/track_video.py --source path/to/video.mp4
+python scripts/track_video.py --source path/to/video.mp4 --show --vid-stride 2   # live window, every 2nd frame (faster on CPU)
+python scripts/track_video.py --source 0                                         # webcam
+python scripts/track_video.py --source rtsp://<camera-address>/stream            # IP camera
+```
+How a violation is decided ([scripts/tracking.py](scripts/tracking.py)):
+- One box per head: class-agnostic NMS removes the occasional second box of the other class on the same head (otherwise ByteTrack sees two riders and logs the violator twice).
+- Every frame where a head passes its class's tuned threshold is a **vote** for that class. Heads cut off by the frame border don't vote, because a half-visible head often looks helmetless.
+- A track is a **violation** if it has at least 5 no-helmet votes **and** they are at least 60% of its votes, counted over the whole track (`--min-frames`, `--min-ratio`).
+- The decision is made **when the rider leaves** (track lost for 30 frames, or the video ends), so early frames or an ID switch between two overlapping heads can't lock in a wrong verdict. Each violation is logged once.
+- On screen: green = helmet, red = violation, orange = "no helmet?" (more no-helmet votes, not enough to decide).
+
+**Measured on real footage** ([Pexels clip](https://www.pexels.com/video/34395449/) by Aamir Somewhere, 14 s, riders on an Indian highway facing the camera). Every rider was labelled in [eval/video_gt/](eval/video_gt/indian_highway_riders.yaml) (helmet yes/no, readable plate, head boxes; drafted with model help, then reviewed by a person, who added 2 missed riders), and [scripts/eval_video.py](scripts/eval_video.py) scores each rider, not each frame:
+
+| Per rider (16 riders, 12 without a helmet) | 720p | 1080p |
+|---|---|---|
+| Riders found | 12 / 16 | 13 / 16 |
+| **Violation precision** (logged violations that are real) | **5 / 5 (100%)** | **4 / 4 (100%)** |
+| **Violation recall** (violators that were logged) | **5 / 12 (42%)** | **4 / 12 (33%)** |
+| Duplicate logs / false riders | 0 / 0 | 0 / 0 |
+| Speed (CPU, `--vid-stride 2`, with plates) | 7.2 FPS | 6.2 FPS |
+
+Reports: [video_eval.md](reports/video_eval.md), [video_eval_1080p.md](reports/video_eval_1080p.md).
+
+**What this shows:** every violation the system logs is real, but it misses more than half of the violators, far more than the image test set suggests (87% recall). Of the 7 missed (720p):
+- **4 wear something on their head** (two white skullcaps, a cloth cap, a cloth tied on the head) and are classified "With Helmet": the model has learned "something on the head = helmet", because the training data has almost no non-helmet headwear;
+- **2 are far-away riders** with heads about 24-27 px tall (one is never tracked at all);
+- **1 has his head cut off** by the top of the frame, so it never votes. The biggest fix is data, not thresholds: add images of caps, skullcaps and scarves labelled "Without Helmet"; far riders need a higher input resolution or tiled inference. (Indian law exempts turban-wearing Sikhs from the helmet rule, so a deployed system needs a policy for turbans rather than a blanket "headwear = violation".)
+
+Earlier fixes found on this clip: class-agnostic NMS removed duplicate logs (8 logs for 5 people before), and split votes (≥ 40% no-helmet) are shown as **Uncertain** (orange) for a reviewer instead of "With Helmet". To evaluate your own clip: run `track_video.py`, draft labels with `scripts/video_gt_draft.py`, correct them by hand, then run `eval_video.py` (put videos in `data/videos/`, which git ignores).
+
+#### Number plates (best effort)
+For each violator, the 5 frames where they are closest to the camera are kept; a COCO detector finds the vehicle the rider is on ([association.py](scripts/association.py)), RapidOCR reads it, and [plates.py](scripts/plates.py) validates the Indian format (state code, district, series, number), fixes look-alike characters by position (series letters never use I/O, so a 0 there is a D) and votes across frames. A plate is only reported if **at least 2 frames agree**; the output shows how many agreed and the plate's width in pixels. `--no-plates` turns it off.
+
+Same clip at two resolutions (5 riders without a helmet):
+
+| | 720p | 1080p |
+|---|---|---|
+| Correct plates | 0 | **1** (`MP04MF3217`, 97 px wide; unreadable at 720p) |
+| Wrong plates | 1 | 1 |
+| No plate reported | 4 | 3 (+1 rider marked Uncertain) |
+
+**What this shows:** resolution matters (a plate became readable at 1080p), but it is not the only limit. The one wrong plate is `MP04ZD7116`, read as `MP02ZD7116` in 4 of 5 frames **even at 286 px wide and sharp**: the general-purpose OCR model misreads this plate's open-top "4". A plate-specific recognizer (for example fast-plate-ocr) is the next step; until then plate text is evidence for a human reviewer, not an automatic fine. Plates are personal data: keep outputs private and blur them in public demos.
+
+Outputs in `results/video/<name>_<timestamp>/`: `annotated.mp4`, `tracks.csv` (one row per track, with plate), `violations/` (one snapshot per violator, captioned with its plate, plus the plate crop) and `summary.json` (counts + violation log). Speed on CPU (i7-7700K): about **10 FPS** for tracking at 640 px, about 7 FPS with plate reading (plates are read only for violators, once they leave the frame); use `--vid-stride 2` or `3` for real-time on longer videos.
+
+### Tests
+```bash
+pip install -r requirements-dev.txt
+pytest
+```
+
 ### Evaluate and analyse
 ```bash
 python scripts/evaluate.py --split test        # mAP, per-class metrics, confusion matrix
 python scripts/tune_thresholds.py              # -> configs/thresholds.yaml + reports/thresholds.md
 python scripts/error_analysis.py               # -> reports/error_analysis.md + gallery (val split)
 python scripts/dataset_audit.py                # -> reports/dataset_audit.md
+python scripts/eval_association.py             # -> reports/association.md (head-on-vehicle filter: val tuning, test report)
+python scripts/eval_video.py --gt eval/video_gt/indian_highway_riders.yaml --run results/video/<run>   # -> reports/video_eval.md
 ```
 
 ### Train and compare models
@@ -178,7 +249,7 @@ python scripts/benchmark.py                    # -> reports/model_comparison.md
 
 See [docs/PROJECT_REVIEW_AND_PLAN.md](docs/PROJECT_REVIEW_AND_PLAN.md).
 1. **ML rigor** ✅: threshold tuning, error analysis, dataset audit, model comparison (YOLOv8 / YOLO11 / YOLO26) and class rebalancing
-2. **Video system:** rider tracking (ByteTrack), head-to-vehicle association, violation logic, number-plate OCR
+2. **Video system** (in progress): rider tracking with ByteTrack ✅, per-rider violation logic ✅, head-to-vehicle association ✅ (evaluated; not worth it as a false-alarm filter on this data), number-plate OCR ✅ (best effort, see below), violation log in SQLite ⏳
 3. **Deployment:** FastAPI + Docker, ONNX optimization with benchmarks, CI, live demo
 
 ---

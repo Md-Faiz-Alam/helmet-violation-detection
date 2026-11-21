@@ -1,0 +1,271 @@
+# Ground truth for scripts/eval_video.py. See annotation.method and annotation.rules.
+video: indian_highway_riders.mp4
+frames: 851
+fps: 60.0
+resolution:
+- 1280
+- 720
+source: https://www.pexels.com/video/34395449/ (Pexels license, by Aamir Somewhere)
+download: https://videos.pexels.com/video-files/34395449/14571159_1280_720_60fps.mp4
+annotation:
+  method: 'model-assisted: tracker boxes as keyframes; identity, helmet and plate of every rider checked by eye (720p crops,
+    1080p zooms for small riders and plates); tracker mistakes fixed by hand (3 riders merged from split tracks, 6 edge/ghost
+    tracks removed); human review added 2 riders the draft missed (R40, R41) and changed R7 from unclear to no helmet'
+  annotated_by: Md Faiz Alam, 2026-11-21
+  reviewed_by: Md Faiz Alam (project owner), 2026-11-21
+  rules: rider = person on a two-wheeler (driver or pillion); helmet true/false/'unclear'; plate only if a person can read
+    it; keyframes = head boxes [x1, y1, x2, y2] in pixels of this resolution, keyed by 1-based frame number; riders whose
+    head is never >= 24 px tall are ignored by eval_video.py
+riders:
+- id: R1
+  helmet: false
+  plate: MP04MF3217
+  description: light-blue shirt, front left, no helmet
+  keyframes:
+    1: [189, 268, 239, 327]
+    17: [185, 267, 232, 323]
+    33: [172, 272, 217, 324]
+    49: [155, 272, 206, 327]
+    65: [132, 264, 187, 323]
+    81: [106, 265, 164, 329]
+    97: [70, 255, 137, 332]
+    115: [27, 256, 95, 339]
+- id: R2
+  helmet: true
+  plate: null
+  description: blue jacket, black full-face helmet
+  keyframes:
+    1: [391, 242, 453, 308]
+    17: [377, 238, 443, 307]
+    33: [354, 232, 420, 302]
+    49: [321, 220, 394, 300]
+    65: [284, 215, 365, 304]
+    81: [244, 213, 321, 294]
+    97: [181, 204, 272, 298]
+    113: [111, 200, 211, 301]
+    129: [36, 189, 148, 305]
+    139: [0, 181, 94, 286]
+- id: R3
+  helmet: false
+  plate: MP04ZD7116
+  description: checked shirt, closest rider, no helmet
+  keyframes:
+    1: [847, 127, 954, 257]
+    17: [802, 108, 914, 247]
+    33: [758, 88, 873, 238]
+    49: [718, 78, 828, 226]
+    65: [676, 75, 795, 227]
+    81: [614, 55, 742, 220]
+    97: [557, 70, 672, 215]
+    113: [481, 48, 624, 231]
+    129: [380, 20, 532, 214]
+    145: [264, 0, 420, 188]
+    161: [152, 0, 304, 145]
+    177: [11, 0, 175, 115]
+    187: [0, 0, 104, 80]
+- id: R4
+  helmet: false
+  plate: null
+  description: 'bearded driver, white skullcap, grey kurta (plate only partly visible: ...C 7862)'
+  keyframes:
+    93: [839, 288, 874, 335]
+    109: [830, 292, 868, 342]
+    125: [816, 292, 857, 347]
+    141: [801, 292, 841, 345]
+    203: [141, 102, 264, 250]
+    219: [106, 70, 231, 225]
+    235: [65, 42, 202, 216]
+    251: [23, 33, 164, 209]
+    267: [0, 4, 139, 197]
+    283: [0, 0, 103, 180]
+    295: [0, 6, 64, 164]
+- id: R5
+  helmet: false
+  plate: null
+  description: pillion behind R4, white skullcap, light shirt
+  keyframes:
+    189: [244, 110, 369, 251]
+    205: [208, 87, 327, 229]
+    221: [179, 58, 290, 206]
+    237: [146, 35, 254, 186]
+    253: [108, 17, 222, 181]
+    269: [68, 0, 179, 155]
+    285: [32, 0, 145, 152]
+    301: [0, 0, 109, 135]
+    317: [0, 0, 74, 107]
+    329: [0, 0, 40, 79]
+- id: R6
+  helmet: true
+  plate: null
+  description: far rider on white scooter, white helmet
+  keyframes:
+    13: [1174, 256, 1203, 297]
+    29: [1177, 261, 1203, 298]
+    45: [1182, 263, 1210, 301]
+    61: [1192, 255, 1224, 302]
+    79: [1207, 264, 1231, 299]
+    95: [1208, 257, 1238, 302]
+- id: R7
+  helmet: false
+  plate: null
+  description: far rider on white scooter, no helmet (blurry; judged by the reviewer)
+  keyframes:
+    29: [1117, 272, 1139, 299]
+    33: [1118, 272, 1138, 297]
+- id: R8
+  helmet: false
+  plate: null
+  description: far rider, soft cloth cap (not a helmet)
+  keyframes:
+    239: [1102, 270, 1125, 300]
+    255: [1102, 269, 1126, 302]
+    271: [1100, 265, 1124, 299]
+    287: [1102, 275, 1121, 302]
+    303: [1101, 277, 1121, 305]
+    315: [1099, 279, 1119, 305]
+- id: R9
+  helmet: true
+  plate: null
+  description: far rider, purple shirt, white helmet
+  keyframes:
+    299: [1208, 259, 1229, 286]
+    315: [1196, 270, 1218, 300]
+    331: [1192, 269, 1216, 301]
+    347: [1185, 277, 1207, 307]
+    363: [1179, 281, 1205, 313]
+    379: [1173, 289, 1199, 323]
+    409: [1170, 303, 1192, 334]
+    411: [1171, 307, 1193, 336]
+- id: R10
+  helmet: false
+  plate: null
+  description: second white-skullcap rider, grey kurta, mid-left at 5.4-6.9 s
+  keyframes:
+    323: [446, 207, 509, 278]
+    339: [372, 194, 443, 277]
+    355: [288, 179, 363, 270]
+    371: [206, 165, 281, 259]
+    387: [122, 154, 195, 245]
+    403: [30, 144, 109, 245]
+    415: [0, 128, 49, 229]
+- id: R11
+  helmet: false
+  plate: null
+  description: far centre rider, camo shirt, cloth tied on head
+  keyframes:
+    353: [1093, 294, 1111, 320]
+    371: [1090, 299, 1111, 330]
+    387: [1090, 308, 1109, 336]
+    445: [1099, 332, 1122, 366]
+    453: [1102, 337, 1124, 370]
+- id: R12
+  helmet: false
+  plate: null
+  description: brown jacket on scooter next to the auto-rickshaw at 12.9-13.6 s
+  keyframes:
+    771: [289, 1, 321, 145]
+    787: [187, 0, 257, 146]
+    803: [45, 0, 140, 127]
+    813: [0, 0, 82, 108]
+- id: R17
+  helmet: false
+  plate: null
+  description: dark jacket on scooter, in view 0.5-11.6 s (plate never clearly visible)
+  keyframes:
+    27: [1024, 280, 1063, 326]
+    43: [1015, 274, 1063, 330]
+    59: [1008, 267, 1063, 333]
+    75: [1013, 268, 1061, 334]
+    91: [1014, 283, 1057, 339]
+    107: [1009, 289, 1053, 346]
+    123: [1006, 296, 1047, 349]
+    139: [1001, 296, 1046, 352]
+    155: [998, 292, 1044, 349]
+    171: [989, 282, 1042, 347]
+    187: [977, 284, 1029, 348]
+    203: [961, 275, 1012, 337]
+    219: [947, 268, 998, 331]
+    235: [931, 265, 984, 331]
+    251: [918, 258, 973, 328]
+    267: [902, 253, 955, 323]
+    283: [888, 262, 937, 325]
+    299: [870, 252, 927, 326]
+    315: [856, 249, 909, 316]
+    331: [838, 247, 894, 318]
+    347: [818, 240, 872, 307]
+    363: [794, 235, 849, 304]
+    379: [772, 237, 828, 310]
+    395: [744, 232, 802, 309]
+    411: [717, 238, 772, 306]
+    427: [688, 225, 746, 297]
+    443: [667, 229, 722, 296]
+    459: [636, 214, 699, 290]
+    475: [610, 209, 669, 282]
+    491: [576, 199, 643, 283]
+    507: [547, 185, 611, 268]
+    523: [507, 172, 575, 261]
+    539: [464, 157, 531, 248]
+    555: [420, 154, 488, 243]
+    571: [374, 136, 443, 227]
+    587: [327, 122, 396, 215]
+    603: [275, 109, 346, 200]
+    619: [217, 97, 297, 196]
+    635: [160, 85, 242, 184]
+    651: [102, 68, 188, 173]
+    667: [42, 60, 135, 174]
+    683: [0, 56, 79, 162]
+    695: [0, 44, 52, 158]
+- id: R39
+  helmet: false
+  plate: MP04UM8865
+  description: yellow backpack, Police-sticker bike
+  keyframes:
+    115: [739, 256, 785, 321]
+    131: [738, 257, 787, 328]
+    147: [742, 259, 789, 324]
+    163: [742, 247, 796, 316]
+    179: [733, 243, 789, 314]
+    195: [723, 235, 783, 308]
+    211: [708, 219, 769, 295]
+    227: [688, 218, 748, 295]
+    243: [666, 215, 725, 292]
+    259: [637, 199, 701, 283]
+    275: [604, 187, 669, 272]
+    291: [576, 177, 642, 263]
+    307: [544, 155, 618, 248]
+    323: [512, 145, 587, 244]
+    339: [475, 143, 549, 240]
+    355: [432, 128, 513, 235]
+    371: [379, 116, 465, 228]
+    387: [333, 115, 418, 221]
+    403: [293, 109, 378, 213]
+    419: [239, 90, 336, 208]
+    435: [192, 78, 287, 195]
+    451: [131, 57, 233, 180]
+    467: [72, 36, 179, 164]
+    483: [16, 17, 126, 150]
+    499: [0, 0, 71, 131]
+    503: [0, 0, 56, 124]
+- id: R40
+  helmet: false
+  plate: null
+  description: maroon shirt, two milk cans on the bike, in front of R6 (0-1.6 s); missed in the first draft, added by the reviewer
+  keyframes:
+    1: [1124, 283, 1146, 307]
+    13: [1140, 284, 1163, 308]
+    25: [1159, 282, 1180, 305]
+    37: [1171, 286, 1193, 310]
+    49: [1187, 281, 1210, 305]
+    61: [1205, 282, 1228, 307]
+    73: [1222, 286, 1246, 311]
+    85: [1235, 287, 1259, 312]
+    97: [1251, 289, 1275, 314]
+- id: R41
+  helmet: true
+  plate: null
+  description: white scooter right of R40, red-and-white helmet (0.2-0.8 s, track 16 in the first draft)
+  keyframes:
+    13: [1186, 289, 1213, 331]
+    25: [1210, 283, 1237, 324]
+    37: [1225, 284, 1254, 327]
+    49: [1240, 289, 1270, 332]
