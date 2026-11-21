@@ -49,7 +49,9 @@ def test_noise_is_ignored():
 
 
 def test_vote_prefers_most_frames():
-    plate, score, n = vote([("MP04ZD7116", 0.7), ("MP04ZD7118", 0.95), ("MP04ZD7116", 0.6)])
+    result = vote([("MP04ZD7116", 0.7), ("MP04ZD7118", 0.95), ("MP04ZD7116", 0.6)])
+    assert result is not None
+    plate, score, n = result
     assert (plate, round(score, 6), n) == ("MP04ZD7116", 1.3, 2)
     assert vote([]) is None
 

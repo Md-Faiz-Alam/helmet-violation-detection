@@ -21,6 +21,7 @@ import numpy as np
 from ultralytics import YOLO
 
 from association import VEHICLE_CLASSES, AssociationRule, associate
+from metrics import predict_array
 from plates import plate_candidates, vote
 
 
@@ -51,9 +52,8 @@ class PlateReader:
         return frame[Y1:Y2, X1:X2].copy(), (x1 - X1, y1 - Y1, x2 - X1, y2 - Y1)
 
     def _vehicle_for(self, crop, head):
-        r = self.vehicles.predict(crop, conf=self.rule.vehicle_conf, device=self.device, verbose=False)[0]
-        vehicles = [(tuple(b), float(s)) for c, s, b in zip(r.boxes.cls, r.boxes.conf, r.boxes.xyxy.tolist(), strict=True)
-                    if r.names[int(c)] in VEHICLE_CLASSES]
+        pred = predict_array(self.vehicles, crop, conf=self.rule.vehicle_conf, device=self.device)
+        vehicles = [(tuple(p[:4]), float(p[4])) for p in pred if self.vehicles.names[int(p[5])] in VEHICLE_CLASSES]
         j = associate([head], vehicles, self.rule)[0]
         return vehicles[j][0] if j >= 0 else None
 

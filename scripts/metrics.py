@@ -6,7 +6,9 @@ Used by tune_thresholds.py and error_analysis.py. Matching is class-aware and gr
 
 from pathlib import Path
 
+import cv2
 import numpy as np
+import torch
 import yaml
 from PIL import Image
 
@@ -24,11 +26,15 @@ def load_split(data_yaml, split):
     cfg = yaml.safe_load(data_yaml.read_text())
     names = cfg["names"]
     key = {"valid": "val"}.get(split, split)
-    img_dir = (data_yaml.parent / cfg[key]).resolve()
-    label_dir = img_dir.parent / "labels"  # YOLO layout: <split>/images + <split>/labels
+    src = (data_yaml.parent / cfg[key]).resolve()
+    if src.suffix == ".txt":  # a list of image paths (e.g. data/headwear_test.yaml)
+        paths = [Path(ln.strip()) for ln in src.read_text(encoding="utf-8").splitlines() if ln.strip()]
+    else:  # a folder of images
+        paths = [p for p in src.iterdir() if p.suffix.lower() in IMAGE_EXTS]
 
     items = []
-    for img_path in sorted(p for p in img_dir.iterdir() if p.suffix.lower() in IMAGE_EXTS):
+    for img_path in sorted(paths):
+        label_dir = img_path.parent.parent / "labels"  # YOLO layout: .../images/x.jpg -> .../labels/x.txt
         with Image.open(img_path) as im:
             w, h = im.size
         gt = np.zeros((0, 5), dtype=float)
@@ -43,17 +49,45 @@ def load_split(data_yaml, split):
     return names, items
 
 
+def read_image(path):
+    """cv2.imread that raises a clear error instead of returning None for an unreadable file."""
+    img = cv2.imread(str(path))
+    if img is None:
+        raise FileNotFoundError(f"Could not read image: {path}")
+    return img
+
+
+def as_numpy(x):
+    """Torch tensor or numpy array -> numpy array (Ultralytics boxes can be either)."""
+    return x.cpu().numpy() if isinstance(x, torch.Tensor) else np.asarray(x)
+
+
+def first_result(results):
+    """The first Results of a predict()/track() call, checked (Ultralytics' type hints allow other types)."""
+    from ultralytics.engine.results import Results
+
+    r = next(iter(results))
+    if not isinstance(r, Results):
+        raise TypeError(f"Expected a detection result, got {type(r).__name__}")
+    return r
+
+
+def predict_array(model, source, **kwargs):
+    """Run a detector on ONE image and return its boxes as an (M, 6) array [x1, y1, x2, y2, conf, cls].
+
+    Ultralytics' type hints allow predict() to return several result types and `boxes` to be None;
+    this checks both explicitly, so callers get a plain numpy array.
+    """
+    r = first_result(model.predict(source, verbose=False, **kwargs))
+    if r.boxes is None or len(r.boxes) == 0:
+        return np.zeros((0, 6))
+    return as_numpy(r.boxes.data)[:, -6:]  # x1, y1, x2, y2, conf, cls
+
+
 def predict_items(model, items, imgsz=640, conf=0.001, device=None):
     """Attach raw predictions to each item: item["pred"] = (M, 6) [x1, y1, x2, y2, conf, cls]."""
     for item in items:
-        r = model.predict(item["path"], imgsz=imgsz, conf=conf, device=device, verbose=False)[0]
-        b = r.boxes
-        if len(b):
-            item["pred"] = np.concatenate(
-                [b.xyxy.cpu().numpy(), b.conf.cpu().numpy()[:, None], b.cls.cpu().numpy()[:, None]], axis=1
-            )
-        else:
-            item["pred"] = np.zeros((0, 6))
+        item["pred"] = predict_array(model, item["path"], imgsz=imgsz, conf=conf, device=device)
     return items
 
 

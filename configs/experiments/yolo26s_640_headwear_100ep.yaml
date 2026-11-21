@@ -1,0 +1,6 @@
+# Same as yolo26s_640_headwear, trained twice as long: every 50-epoch run peaked at epoch 41-48,
+# and the extra data makes the task harder, so 50 epochs may stop too early.
+_base_: yolo26s_640_headwear.yaml
+train:
+  epochs: 100
+  patience: 30

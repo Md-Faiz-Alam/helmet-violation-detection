@@ -114,6 +114,7 @@ def main(args):
         key = (round(s[names[v]]["F"], 4), round(s[names[safe]]["F"], 4))
         if best is None or key > best[0]:
             best = (key, rule)
+    assert best is not None, "empty search grid"
     rule = best[1]
     print("Chosen rule:", rule)
 

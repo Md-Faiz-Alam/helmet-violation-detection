@@ -33,6 +33,7 @@ import cv2
 import numpy as np
 from ultralytics import YOLO
 
+from metrics import as_numpy, first_result
 from plates import BestFrames
 from tracking import SAFE_CLASS, UNCERTAIN, VIOLATION_CLASS, ViolationTracker
 from utils import DEFAULT_THRESHOLDS, load_thresholds
@@ -155,13 +156,12 @@ def run(args):
             # per-class thresholds are applied afterwards, when tracks vote.
             # agnostic_nms: the detector sometimes puts a "With" AND a "Without Helmet" box on the
             # same head; without it ByteTrack sees two riders and the violator gets logged twice.
-            r = model.track(frame, persist=True, tracker=args.tracker, conf=0.1, imgsz=imgsz,
-                            agnostic_nms=True, device=args.device, verbose=False)[0]
+            r = first_result(model.track(frame, persist=True, tracker=args.tracker, conf=0.1, imgsz=imgsz,
+                                         agnostic_nms=True, device=args.device, verbose=False))
             tracked = []
-            if r.boxes.id is not None:
-                for tid, c, conf, box in zip(r.boxes.id.int().tolist(), r.boxes.cls.int().tolist(),
-                                             r.boxes.conf.tolist(), r.boxes.xyxy.tolist(), strict=True):
-                    tracked.append((tid, r.names[c], conf, box))
+            if r.boxes is not None and r.boxes.is_track:  # rows: x1, y1, x2, y2, track id, conf, cls
+                for x1, y1, x2, y2, tid, conf, c in as_numpy(r.boxes.data).tolist():
+                    tracked.append((int(tid), r.names[int(c)], conf, [x1, y1, x2, y2]))
 
             for tid, cls_name, conf, (x1, y1, x2, y2) in tracked:  # frame = 1-based index in the source video
                 boxes_csv.writerow([frame_idx, tid, cls_name, round(conf, 3), round(x1), round(y1), round(x2), round(y2)])
@@ -175,7 +175,7 @@ def run(args):
                     if tracker.tracks[tid].votes.get(VIOLATION_CLASS, 0):
                         area = (box[2] - box[0]) * (box[3] - box[1])
                         plate_frames.setdefault(tid, BestFrames(k=args.plate_frames)).offer(
-                            processed, area, lambda f=frame, b=box: PlateReader.rider_region(f, b))
+                            processed, area, lambda f=frame, b=box: plate_reader.rider_region(f, b))
                 for tid in [tid for tid in plate_frames if tracker.tracks[tid].finalized]:
                     del plate_frames[tid]  # decided, not a violation: free the memory
 
@@ -194,7 +194,7 @@ def run(args):
             if not args.no_video:
                 if writer is None:
                     out_fps = (src_fps / args.vid_stride) if src_fps else 10
-                    writer = cv2.VideoWriter(str(out_dir / "annotated.mp4"), cv2.VideoWriter_fourcc(*"mp4v"),
+                    writer = cv2.VideoWriter(str(out_dir / "annotated.mp4"), cv2.VideoWriter.fourcc(*"mp4v"),
                                              out_fps, (frame.shape[1], frame.shape[0]))
                 writer.write(frame)
             if args.show:

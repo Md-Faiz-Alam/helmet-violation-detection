@@ -44,7 +44,10 @@ def run_training(cfg, name, output_dir="results/train", promote=False, model_dir
         **cfg["train"],
     )
 
-    run_dir = Path(model.trainer.save_dir)
+    save_dir = model.trainer.save_dir if model.trainer is not None else None
+    if save_dir is None:
+        raise RuntimeError("Training did not produce a run folder")
+    run_dir = Path(save_dir)
     with open(run_dir / "experiment.yaml", "w", encoding="utf-8") as f:
         yaml.safe_dump({"name": name, **cfg}, f, sort_keys=False)
 

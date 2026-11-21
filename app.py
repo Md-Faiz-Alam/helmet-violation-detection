@@ -64,7 +64,7 @@ with st.sidebar:
     threshold_mode = st.radio("Confidence thresholds", options,
                               help="Tuned thresholds come from scripts/tune_thresholds.py: the violation class "
                                    "uses a low threshold so fewer riders without helmets are missed.")
-    if threshold_mode.startswith("Tuned"):
+    if tuned and threshold_mode.startswith("Tuned"):
         thresholds = tuned
         for name, t in thresholds.items():
             st.caption(f"{name}: {t:.2f}")

@@ -34,7 +34,7 @@ def make_clip(path, frames=30):
     big = cv2.resize(img, None, fx=2, fy=2)
     h, w = big.shape[:2]
     cw, ch = int(w * 0.8), int(h * 0.8)
-    vw = cv2.VideoWriter(str(path), cv2.VideoWriter_fourcc(*"mp4v"), 25, (640, 360))
+    vw = cv2.VideoWriter(str(path), cv2.VideoWriter.fourcc(*"mp4v"), 25, (640, 360))
     for i in range(frames):
         x = int((w - cw) * i / (frames - 1))
         vw.write(cv2.resize(big[(h - ch) // 2:(h - ch) // 2 + ch, x:x + cw], (640, 360)))

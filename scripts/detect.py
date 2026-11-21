@@ -15,6 +15,7 @@ from pathlib import Path
 
 import cv2
 from ultralytics import YOLO
+from ultralytics.engine.results import Results
 
 from utils import DEFAULT_THRESHOLDS, VIDEO_EXTS, apply_thresholds, create_light_bundle, list_images, load_thresholds
 
@@ -39,16 +40,19 @@ def run_detection(weights, source, conf=None, thresholds_path=DEFAULT_THRESHOLDS
 
     counts, n_frames, writer = Counter(), 0, None
     for item in inputs:
-        for r in model.predict(source=item, conf=predict_conf, stream=True, verbose=False):
-            r = apply_thresholds(r, thresholds, default=predict_conf)
+        for raw in model.predict(source=item, conf=predict_conf, stream=True, verbose=False):
+            if not isinstance(raw, Results):
+                raise TypeError(f"Expected a detection result, got {type(raw).__name__}")
+            r = apply_thresholds(raw, thresholds, default=predict_conf)
             n_frames += 1
-            counts.update(r.names[int(c)] for c in r.boxes.cls)
+            if r.boxes is not None:
+                counts.update(r.names[int(c)] for c in r.boxes.cls)
             frame = r.plot()
             if is_video:
                 if writer is None:
                     fps = cv2.VideoCapture(source).get(cv2.CAP_PROP_FPS) or 25
                     out_path = os.path.join(run_folder, Path(source).stem + "_pred.mp4")
-                    writer = cv2.VideoWriter(out_path, cv2.VideoWriter_fourcc(*"mp4v"), fps, (frame.shape[1], frame.shape[0]))
+                    writer = cv2.VideoWriter(out_path, cv2.VideoWriter.fourcc(*"mp4v"), fps, (frame.shape[1], frame.shape[0]))
                 writer.write(frame)
             else:
                 cv2.imwrite(os.path.join(run_folder, os.path.basename(r.path)), frame)

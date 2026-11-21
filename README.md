@@ -226,10 +226,11 @@ Outputs in `results/video/<name>_<timestamp>/`: `annotated.mp4`, `tracks.csv` (o
 ```bash
 pip install -r requirements-dev.txt
 ruff check .          # lint (rules in ruff.toml)
+pyright               # type check (settings in pyrightconfig.json; the same engine as VS Code's Pylance)
 pytest                # unit tests: tracking votes, plate rules, association, video scoring (~3 s, no model)
 pytest -m smoke       # end-to-end: the real model through detect.py, track_video.py and the app (~20 s on CPU)
 ```
-GitHub Actions ([.github/workflows/ci.yml](.github/workflows/ci.yml)) runs lint + unit tests on every push and pull request, then the smoke tests with CPU-only PyTorch.
+GitHub Actions ([.github/workflows/ci.yml](.github/workflows/ci.yml)) runs lint + unit tests on every push and pull request, then type checking and the smoke tests with CPU-only PyTorch.
 
 ### Evaluate and analyse
 ```bash
@@ -267,6 +268,7 @@ See [docs/PROJECT_REVIEW_AND_PLAN.md](docs/PROJECT_REVIEW_AND_PLAN.md).
 
 - [Ultralytics](https://github.com/ultralytics/ultralytics) (YOLOv8 / YOLO11 / YOLO26)
 - [Roboflow Universe](https://universe.roboflow.com/), the Bike Helmet Detection dataset by Syed Salman Reza (Public Domain)
+- [Helmet, Rider, ANPR Detection v12](https://universe.roboflow.com/onlytusik/helmet-rider-anpr-detection/dataset/12) by OnlyTusik (CC BY 4.0), extra training data for non-helmet headwear (cleaned and de-duplicated against our data by `scripts/mine_headwear.py`)
 - [Pexels](https://www.pexels.com/video/34395449/), test video by Aamir Somewhere (Pexels license; not redistributed here, downloaded by URL)
 - [RapidOCR](https://github.com/RapidAI/RapidOCR) (PaddleOCR models on ONNX Runtime) and [ByteTrack](https://github.com/ifzhang/ByteTrack) via Ultralytics
 

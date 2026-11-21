@@ -1,0 +1,9 @@
+{
+  "//": "Type checking (Pyright; also used by VS Code's Pylance). The scripts import each other as top-level modules.",
+  "extraPaths": ["scripts"],
+  "venvPath": ".",
+  "venv": ".venv",
+  "pythonVersion": "3.13",
+  "include": ["app.py", "scripts", "tests"],
+  "exclude": ["**/__pycache__", ".venv", "data", "results", "notebook"]
+}

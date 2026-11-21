@@ -58,7 +58,7 @@ def evaluate(weights, data, device, conf):
         "model": run_name(weights),
         "arch": arch_name(model),
         "imgsz": imgsz,
-        "params_M": sum(p.numel() for p in model.model.parameters()) / 1e6,
+        "params_M": sum(p.numel() for p in model.parameters()) / 1e6,
         "size_MB": os.path.getsize(weights) / 1e6,
     }
     for split in ("val", "test"):

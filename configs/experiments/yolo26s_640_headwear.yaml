@@ -1,0 +1,9 @@
+# Current best recipe (YOLO26s + violation oversampling) plus the extra headwear data:
+# caps, skullcaps, turbans, hijabs, hoods, face masks and rear views that the current model reads
+# as "With Helmet" or misses (reports/video_eval.md, scripts/mine_headwear.py).
+# Create the data files first:
+#   python scripts/make_oversampled_split.py
+#   python scripts/download_roboflow.py && python scripts/mine_headwear.py
+_base_: ../base.yaml
+weights: yolo26s.pt
+data: data/data_headwear.yaml
