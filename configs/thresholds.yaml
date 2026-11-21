@@ -2,4 +2,4 @@
 # weights: models/best.pt
 thresholds:
   With Helmet: 0.25
-  Without Helmet: 0.06
+  Without Helmet: 0.16

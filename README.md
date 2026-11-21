@@ -1,6 +1,6 @@
 # 🪖 Helmet Detection with YOLO
 
-Detects riders (motorcycles and bicycles) **with** and **without** helmets in images and videos using a fine-tuned **YOLOv8s** model. It includes evaluation, threshold tuning, error analysis and experiment tooling, plus a **Streamlit** web app.
+Detects riders (motorcycles and bicycles) **with** and **without** helmets in images and videos using a fine-tuned **YOLO26s** model, chosen from 7 trained candidates. It includes evaluation, model comparison, threshold tuning, error analysis and experiment tooling, plus a **Streamlit** web app.
 
 > The class that matters most for road safety is **Without Helmet** (the violation). Missing a violator costs more than a false alarm, so this project optimizes and reports that class separately.
 
@@ -8,38 +8,60 @@ Detects riders (motorcycles and bicycles) **with** and **without** helmets in im
 
 ## 📊 Results
 
-Model: YOLOv8s (11.1M params), fine-tuned for 30 epochs (AdamW, lr0=1e-3, imgsz=640, batch 16) on a Tesla T4.
+Model: **YOLO26s** (9.9M params), fine-tuned for 50 epochs (AdamW, lr0=1e-3, imgsz=640, batch 16) on a Tesla T4, with training images that contain violators **repeated 2×** to offset the 2:1 class imbalance.
 
 **Held-out test set** (63 images, 184 boxes, never used for training, tuning or model selection):
 
-| Class | mAP50 | mAP50-95 |
-|---|---|---|
-| With Helmet | 0.947 | 0.520 |
-| **Without Helmet** | 0.799 | 0.400 |
-| **All** | 0.873 | 0.460 |
+| Class | mAP50 | mAP50-95 | vs. first baseline (YOLOv8s) |
+|---|---|---|---|
+| With Helmet | 0.952 | 0.517 | 0.947 → 0.952 |
+| **Without Helmet** | **0.881** | 0.435 | **0.799 → 0.881** |
+| **All** | 0.917 | 0.476 | 0.873 → 0.917 |
 
-### Operating threshold: catching more violators
+### Model selection: 7 experiments
 
-One global confidence threshold (0.25) misses about 1 in 4 riders without a helmet. The violation-class threshold was re-tuned **on the validation set** to maximize F2 (recall weighted 2×), then checked once on the test set:
+All candidates were trained with the same recipe on Kaggle (T4) and compared with [`scripts/benchmark.py`](scripts/benchmark.py). The winner was picked on the **validation** columns only; test is reported once, as the unbiased estimate. CPU latency is batch 1 on an Intel i7-7700K.
 
-| Without Helmet (test) | Threshold | Precision | Recall | Missed violators |
-|---|---|---|---|---|
-| Default | 0.25 | 0.833 | 0.738 | 16 of 61 |
-| **Tuned** | **0.06** | 0.634 | **0.852** | **9 of 61** |
+| Model | Params (M) | CPU ms/img | val mAP50 | val no-helmet recall | test mAP50 | test no-helmet recall |
+|---|---|---|---|---|---|---|
+| **YOLO26s + oversampling** ✅ | 9.9 | 108 | **0.925** | **0.843** | 0.917 | 0.869 |
+| YOLO26s | 9.9 | 106 | 0.893 | 0.809 | 0.915 | 0.885 |
+| YOLO11s | 9.4 | 103 | 0.881 | 0.774 | 0.914 | 0.869 |
+| YOLOv8s @ 416 px | 11.1 | 55 | 0.859 | 0.730 | 0.893 | 0.770 |
+| YOLOv8n | 3.1 | 49 | 0.854 | 0.774 | 0.871 | 0.803 |
+| YOLO26n | 2.5 | 51 | 0.824 | 0.713 | 0.909 | 0.787 |
+| YOLOv8s (baseline recipe) | 11.1 | 110 | 0.818 | 0.670 | 0.869 | 0.770 |
 
-The tuned threshold catches more violators at the cost of more false alarms that a human reviewer would need to dismiss. Details: [reports/thresholds.md](reports/thresholds.md).
+No-helmet recall is at confidence 0.25. Full table: [reports/model_comparison.md](reports/model_comparison.md).
+
+- **Architecture mattered most:** YOLO26s beat YOLOv8s by +0.08 val mAP50 at the same speed.
+- **Oversampling violators helped further** (+0.03 val mAP50, +0.03 val no-helmet recall), so it was kept.
+- Every run's best epoch was 41–48 of 50, so longer training may still help.
+
+### Operating threshold
+
+The violation-class threshold is tuned **on the validation set** to maximize F2 (recall weighted 2×), then checked once on test:
+
+| Without Helmet (test) | Threshold | Precision | Recall | Missed violators | False alarms |
+|---|---|---|---|---|---|
+| First baseline (YOLOv8s), tuned | 0.06 | 0.634 | 0.852 | 9 of 61 | 30 |
+| **Current (YOLO26s + oversampling), tuned** | **0.16** | **0.855** | **0.869** | **8 of 61** | **9** |
+
+The better model catches slightly more violators with about **3× fewer false alarms** to review. On test, the tuned threshold gives the same recall as the default 0.25 (it gained recall on val), which is expected noise on 61 objects. Details: [reports/thresholds.md](reports/thresholds.md).
 
 ### What the analysis found
 
-- **Many "false alarms" are pedestrians and bystanders without helmets.** The dataset only labels riders, so the model has no notion of who is *riding*. Fix: associate heads with a detected bike or motorcycle (Phase 2). [Error analysis](reports/error_analysis.md)
-- **Typical misses:** riders seen from behind in crowded scenes, small far-away heads, and goggles or sunglasses on the head mistaken for a helmet.
-- **Distribution shift between splits:** train is 79% motorcycle images, but val and test are about 45% bicycle. Recall turned out to be similar on both vehicle types (~0.84 for Without Helmet), so the model transfers. Its weakest images are close-ups with no vehicle visible. [Dataset audit](reports/dataset_audit.md)
+- **The remaining "false alarms" are mostly pedestrians and bystanders without helmets.** The dataset only labels riders, so the model has no notion of who is *riding*. The new model cut no-helmet background false alarms on val from 66 to 18. Next fix: associate heads with a detected bike or motorcycle (video system, below). [Error analysis](reports/error_analysis.md)
+- **Small heads improved most:** no-helmet recall on heads under 32 px went from 0.75 to 0.90 (val).
+- **Trade-off:** oversampling shifted the model toward the violation class. Missed *With Helmet* heads on val rose from 16 to 22, mostly small ones (recall 0.69 below 32 px).
+- **Typical misses:** riders seen from behind in crowded scenes, and face coverings or goggles that look like a helmet.
+- **Distribution shift between splits:** train is 79% motorcycle images, but val and test are about 45% bicycle. Recall is similar on both vehicle types (val no-helmet: 0.91 motorcycle, 0.85 bicycle), so the model transfers. [Dataset audit](reports/dataset_audit.md)
 
 **Known limitations**
 - The test set is small (63 images), so differences of a few points are within noise.
 - The 3,546 training images are Roboflow augmentations (rotation/shear/blur) of a much smaller set of originals, so real-world diversity (night, rain, CCTV angles) is limited.
 - Some visible heads in crowded images are unlabeled, which inflates false-positive counts.
-- CPU inference takes about 140 ms per image at 640 px (Intel i7-7700K).
+- CPU inference takes about 110 ms per image at 640 px (Intel i7-7700K, PyTorch). An ONNX export is planned.
 
 ---
 
@@ -66,7 +88,7 @@ Helmet_Detection/
 │   ├── helmet_detection_training.ipynb   # data exploration, baseline training, evaluation (Kaggle or local)
 │   └── experiments_kaggle.ipynb          # Kaggle GPU: train and compare all experiment configs
 ├── reports/                        # generated analysis reports + error gallery
-├── models/best.pt                  # trained weights (22 MB)
+├── models/best.pt                  # trained weights, YOLO26s (20 MB)
 ├── data/data.yaml                  # dataset config (images are downloaded separately)
 ├── samples/                        # demo images for the app
 ├── docs/PROJECT_REVIEW_AND_PLAN.md # roadmap
@@ -143,7 +165,7 @@ python scripts/dataset_audit.py                # -> reports/dataset_audit.md
 Every experiment is a small YAML file in `configs/experiments/` that inherits `configs/base.yaml`:
 ```bash
 python scripts/make_oversampled_split.py       # only needed for the *_oversample experiment
-python scripts/train.py --config configs/experiments/yolo26s_640.yaml --device 0
+python scripts/train.py --config configs/experiments/yolo26s_640_oversample.yaml --device 0
 python scripts/benchmark.py                    # -> reports/model_comparison.md
 ```
 - Runs are saved to `results/train/<experiment>/`. Add `--promote` to copy the best weights to `models/best.pt`, which the app uses.
@@ -155,7 +177,7 @@ python scripts/benchmark.py                    # -> reports/model_comparison.md
 ## 🗺️ Roadmap
 
 See [docs/PROJECT_REVIEW_AND_PLAN.md](docs/PROJECT_REVIEW_AND_PLAN.md).
-1. **ML rigor** (in progress): threshold tuning ✅, error analysis ✅, dataset audit ✅, model comparison (YOLOv8 / YOLO11 / YOLO26) and class rebalancing ⏳
+1. **ML rigor** ✅: threshold tuning, error analysis, dataset audit, model comparison (YOLOv8 / YOLO11 / YOLO26) and class rebalancing
 2. **Video system:** rider tracking (ByteTrack), head-to-vehicle association, violation logic, number-plate OCR
 3. **Deployment:** FastAPI + Docker, ONNX optimization with benchmarks, CI, live demo
 

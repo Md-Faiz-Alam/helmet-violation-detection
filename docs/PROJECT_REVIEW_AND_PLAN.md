@@ -1,6 +1,6 @@
 # Helmet Detection: Roadmap
 
-_Last updated: 2026-11-20_
+_Last updated: 2026-11-21_
 
 **Goal:** turn this into a portfolio-grade **computer-vision / ML engineering** project for AI/ML roles.
 GenAI is covered by separate projects (RAG, VeiSight), so this one focuses on detection, evaluation, video and deployment.
@@ -12,17 +12,19 @@ Rename only once the project actually detects violations in video.
 
 ## Where we are
 
-**Baseline model:** YOLOv8s, 30 epochs, AdamW, imgsz 640 (trained on a Tesla T4 GPU).
+**Current model:** YOLO26s + 2× oversampling of violator images, 50 epochs, AdamW, imgsz 640 (Kaggle T4). Picked on val from 7 experiments (`reports/model_comparison.md`).
 
 **Held-out test set** (63 images, 184 boxes), measured with `scripts/evaluate.py`:
 
 | Class | Precision | Recall | mAP50 | mAP50-95 |
 |---|---|---|---|---|
-| With Helmet | 0.878 | 0.935 | 0.947 | 0.520 |
-| **Without Helmet** | 0.833 | **0.721** | 0.799 | 0.400 |
-| All | 0.855 | 0.828 | 0.873 | 0.460 |
+| With Helmet | 0.949 | 0.927 | 0.952 | 0.517 |
+| **Without Helmet** | 0.857 | **0.885** | 0.881 | 0.435 |
+| All | 0.903 | 0.906 | 0.917 | 0.476 |
 
-**Main weakness:** about 28% of riders without a helmet are missed. The training data has about 2× more *With Helmet* boxes (10,091 vs 4,724).
+First baseline (YOLOv8s, 30 epochs) for comparison: Without Helmet mAP50 0.799, recall 0.721, all mAP50 0.873.
+
+**Main remaining weakness:** false alarms on unlabeled pedestrians/bystanders (the model doesn't know who is riding), and small *With Helmet* heads (val recall 0.69 below 32 px).
 
 **Dataset caveats:** the 3,546 training images are Roboflow augmentations of far fewer originals, and the valid/test sets are small (126/63 images), so metrics are noisy.
 
@@ -40,7 +42,7 @@ Rename only once the project actually detects violations in video.
 
 ---
 
-## Phase 1: ML rigor ⭐ in progress
+## Phase 1: ML rigor ✅ done
 
 Done (on CPU, with the existing model):
 - [x] Per-class threshold tuning on val (F2 for the violation class): **test Without Helmet recall 0.738 → 0.852** (missed 16 → 9), precision 0.833 → 0.634. Tuning *With Helmet* did not transfer to test, so it stays at 0.25. → `reports/thresholds.md`
@@ -50,11 +52,16 @@ Done (on CPU, with the existing model):
 - [x] Tools ready: `benchmark.py` (comparison table), `make_oversampled_split.py` (violation images ×2), Kaggle notebook `notebook/experiments_kaggle.ipynb`
 - [x] App and `detect.py` use the tuned thresholds
 
-Next (needs a GPU, so run it on Kaggle):
-- [ ] Run `notebook/experiments_kaggle.ipynb` (Save & Run All): YOLOv8n/s, YOLOv8s@416, YOLO11s, YOLO26n/s, YOLO26s + oversampling
-- [ ] Download the results and run `python scripts/benchmark.py` locally (fair CPU latency) → `reports/model_comparison.md`
-- [ ] Pick the winner on **val** columns, `--promote` it, then re-run `tune_thresholds.py` and `error_analysis.py`
-- [ ] Optional: merge a second helmet dataset with more violators and night/CCTV images
+Model selection (Kaggle T4, 7 experiments):
+- [x] Trained YOLOv8n/s, YOLOv8s@416, YOLO11s, YOLO26n/s, YOLO26s + oversampling with `notebook/experiments_kaggle.ipynb`
+- [x] `benchmark.py` locally (CPU latency on i7-7700K) → `reports/model_comparison.md`
+- [x] Winner on val: **YOLO26s + oversampling** (val mAP50 0.925, val no-helmet recall 0.843), promoted to `models/best.pt`
+- [x] Re-tuned thresholds (Without Helmet 0.16): test no-helmet recall 0.869, precision 0.855 (vs 0.852 / 0.634 with the old model at 0.06)
+- [x] Re-ran error analysis and dataset audit: no-helmet background false alarms on val 66 → 18; small-head no-helmet recall 0.75 → 0.90
+
+Optional follow-ups:
+- [ ] Train the winner for 100 epochs (every run's best epoch was 41–48 of 50)
+- [ ] Merge a second helmet dataset with more violators and night/CCTV images
 - [ ] Re-run the training notebook on Kaggle so its Step 6 test-set outputs are saved
 
 ## Phase 2: Video system ⭐
@@ -87,4 +94,4 @@ Next (needs a GPU, so run it on Kaggle):
 
 ## Resume line (fill in real numbers as you go)
 
-> Built a helmet-violation detection system (YOLO + ByteTrack + plate OCR). I raised no-helmet recall from 74% to 85% on a held-out test set with validation-tuned per-class thresholds (and to XX% with class rebalancing / model selection), and exported to ONNX for X× faster CPU inference (XX FPS). Deployed with FastAPI, Docker and CI, with a live demo on Hugging Face Spaces.
+> Built a helmet-violation detection system (YOLO + ByteTrack + plate OCR). I raised no-helmet recall on a held-out test set from 74% to 87% while cutting false alarms 3× (model selection across 7 YOLOv8/YOLO11/YOLO26 experiments, class rebalancing and validation-tuned per-class thresholds), and exported to ONNX for X× faster CPU inference (XX FPS). Deployed with FastAPI, Docker and CI, with a live demo on Hugging Face Spaces.

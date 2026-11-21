@@ -37,7 +37,9 @@ def arch_name(model):
 
 def run_name(path):
     parts = os.path.normpath(path).split(os.sep)
-    return parts[-3] if len(parts) >= 3 and parts[-2] == "weights" else os.path.splitext(os.path.basename(path))[0]
+    if len(parts) >= 3 and parts[-2] == "weights":
+        return parts[-3]  # results/train/<experiment>/weights/best.pt -> <experiment>
+    return "current (" + "/".join(parts[-2:]) + ")"  # e.g. models/best.pt -> current (models/best.pt)
 
 
 def cpu_latency_ms(model, images, imgsz, n=30, warmup=5):
