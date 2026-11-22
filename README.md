@@ -119,9 +119,6 @@ python scripts/track_video.py --source path/to/video.mp4 --show
 
 - **Web app:** *Overview* (results and the sample), *Analyze* (photo, or video with tracked boxes in sync with
   playback and a timeline of riders), *Review* (confirm or reject each violation; keys J/K, C, R, U) and *Model card*.
-
-  ![Review console: a logged violation with its snapshot, frame votes and why it was logged](docs/images/web_review.png)
-
 - **HTTP API:** `POST /detect` for images, `POST /jobs/video` for videos, `GET/PATCH /violations` for the review
   queue. Endpoints, access rules and settings: **[docs/API.md](docs/API.md)**.
 - **Command line:** image and video tools, webcam and RTSP streams, the violation log, training and evaluation:
