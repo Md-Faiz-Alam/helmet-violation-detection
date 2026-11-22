@@ -34,7 +34,6 @@ class TrackState:
     conf_sum: dict = field(default_factory=dict)     # class name -> summed confidence of those frames
     best_violation_conf: float = 0.0                 # most confident no-helmet frame (for the snapshot)
     best_violation_frame: int = -1
-    best_violation_box: tuple = ()
     first_violation_frame: int = -1                  # first frame where the rule held (event timestamp)
     finalized: bool = False
     violation: bool = False                          # final decision, set when finalized
@@ -122,7 +121,7 @@ class ViolationTracker:
             t.votes[cls_name] = t.votes.get(cls_name, 0) + 1
             t.conf_sum[cls_name] = t.conf_sum.get(cls_name, 0.0) + conf
             if cls_name == VIOLATION_CLASS and conf > t.best_violation_conf:
-                t.best_violation_conf, t.best_violation_frame, t.best_violation_box = conf, frame_idx, tuple(box)
+                t.best_violation_conf, t.best_violation_frame = conf, frame_idx
             if t.first_violation_frame < 0 and self.is_violating(t):
                 t.first_violation_frame = frame_idx
 

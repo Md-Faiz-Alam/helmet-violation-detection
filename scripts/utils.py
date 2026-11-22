@@ -1,12 +1,12 @@
+"""Small helpers shared by detect.py and app.py: thresholds and image listing."""
+
 import os
-import zipfile
 from pathlib import Path
 
 import torch
 import yaml
 
 IMAGE_EXTS = (".jpg", ".jpeg", ".png", ".bmp", ".webp")
-VIDEO_EXTS = (".mp4", ".avi", ".mov", ".mkv")
 DEFAULT_THRESHOLDS = "configs/thresholds.yaml"
 
 
@@ -40,17 +40,3 @@ def list_images(source, limit=0):
     if not images:
         raise FileNotFoundError(f"No images found in: {source}")
     return images[:limit] if limit > 0 else images
-
-
-def create_light_bundle(run_folder, bundle_dir="light_bundles"):
-    """Zip all prediction images/videos of a run into a single shareable file."""
-    os.makedirs(bundle_dir, exist_ok=True)
-    bundle_path = os.path.join(bundle_dir, f"bundle_{os.path.basename(run_folder)}.zip")
-
-    with zipfile.ZipFile(bundle_path, "w", zipfile.ZIP_DEFLATED) as zipf:
-        for root, _, files in os.walk(run_folder):
-            for file in files:
-                if file.lower().endswith(IMAGE_EXTS + VIDEO_EXTS):
-                    zipf.write(os.path.join(root, file), arcname=file)
-
-    return bundle_path

@@ -9,7 +9,6 @@ __pycache__/
 .venv/
 venv/
 env/
-helmet/
 
 # Secrets
 .env
@@ -24,7 +23,6 @@ data/*
 # Training & detection outputs
 runs/
 results/
-light_bundles/
 
 # Downloaded pretrained weights (Ultralytics saves them in the working dir)
 yolov8*.pt

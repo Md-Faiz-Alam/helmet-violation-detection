@@ -1,23 +1,23 @@
-"""Run helmet detection on an image, a folder of images, or a video.
+"""Run helmet detection on an image or a folder of images and save annotated copies.
 
     python scripts/detect.py --source data/test/images --n_samples 5   # tuned per-class thresholds
     python scripts/detect.py --source samples/image1.jpg --conf 0.4      # one threshold for all classes
-    python scripts/detect.py --source path/to/video.mp4
 
 By default it uses the per-class thresholds in configs/thresholds.yaml (from tune_thresholds.py).
+For video, webcam or a camera stream use scripts/track_video.py: it tracks each rider and decides
+once per rider instead of labelling every frame on its own.
 """
 
 import argparse
 import os
 from collections import Counter
 from datetime import datetime
-from pathlib import Path
 
 import cv2
 from ultralytics import YOLO
 from ultralytics.engine.results import Results
 
-from utils import DEFAULT_THRESHOLDS, VIDEO_EXTS, apply_thresholds, create_light_bundle, list_images, load_thresholds
+from utils import DEFAULT_THRESHOLDS, apply_thresholds, list_images, load_thresholds
 
 
 def run_detection(weights, source, conf=None, thresholds_path=DEFAULT_THRESHOLDS, n_samples=0, output_dir="results/detect"):
@@ -35,43 +35,27 @@ def run_detection(weights, source, conf=None, thresholds_path=DEFAULT_THRESHOLDS
         thresholds, predict_conf = {}, conf
 
     model = YOLO(weights)
-    is_video = Path(source).suffix.lower() in VIDEO_EXTS
-    inputs = [source] if is_video else list_images(source, limit=n_samples)
-
-    counts, n_frames, writer = Counter(), 0, None
-    for item in inputs:
-        for raw in model.predict(source=item, conf=predict_conf, stream=True, verbose=False):
+    images = list_images(source, limit=n_samples)
+    counts = Counter()
+    for path in images:
+        for raw in model.predict(source=path, conf=predict_conf, stream=True, verbose=False):
             if not isinstance(raw, Results):
                 raise TypeError(f"Expected a detection result, got {type(raw).__name__}")
             r = apply_thresholds(raw, thresholds, default=predict_conf)
-            n_frames += 1
             if r.boxes is not None:
                 counts.update(r.names[int(c)] for c in r.boxes.cls)
-            frame = r.plot()
-            if is_video:
-                if writer is None:
-                    fps = cv2.VideoCapture(source).get(cv2.CAP_PROP_FPS) or 25
-                    out_path = os.path.join(run_folder, Path(source).stem + "_pred.mp4")
-                    writer = cv2.VideoWriter(out_path, cv2.VideoWriter.fourcc(*"mp4v"), fps, (frame.shape[1], frame.shape[0]))
-                writer.write(frame)
-            else:
-                cv2.imwrite(os.path.join(run_folder, os.path.basename(r.path)), frame)
-    if writer is not None:
-        writer.release()
+            cv2.imwrite(os.path.join(run_folder, os.path.basename(path)), r.plot())
 
-    print(f"✅ Processed {n_frames} {'frames' if is_video else 'images'}. Results saved in: {os.path.normpath(run_folder)}")
+    print(f"✅ Processed {len(images)} images. Results saved in: {os.path.normpath(run_folder)}")
     for name, n in counts.most_common():
         print(f"   {name}: {n}")
-
-    bundle_path = create_light_bundle(run_folder)
-    print(f"✅ Light bundle created at: {os.path.normpath(bundle_path)}")
     return run_folder
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="YOLO Helmet Detection Script")
+    parser = argparse.ArgumentParser(description="Helmet detection on images (use track_video.py for video)")
     parser.add_argument("--weights", type=str, default="models/best.pt", help="Path to model weights")
-    parser.add_argument("--source", type=str, required=True, help="Image file, image folder, or video file")
+    parser.add_argument("--source", type=str, required=True, help="Image file or folder of images")
     parser.add_argument("--conf", type=float, default=None, help="One threshold for all classes (overrides --thresholds)")
     parser.add_argument("--thresholds", type=str, default=DEFAULT_THRESHOLDS, help="Per-class thresholds YAML")
     parser.add_argument("--n_samples", type=int, default=0, help="Max number of images to process (0 = all)")

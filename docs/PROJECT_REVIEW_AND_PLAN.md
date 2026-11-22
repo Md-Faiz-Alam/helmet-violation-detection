@@ -11,19 +11,17 @@ GenAI is covered by separate projects (RAG, VeiSight), so this one focuses on de
 
 ## Where we are
 
-**Current model:** YOLO26s + 2× oversampling of violator images, 50 epochs, AdamW, imgsz 640 (Kaggle T4). Picked on val from 7 experiments (`reports/model_comparison.md`).
+**Current model:** YOLO26s, trained on the original data (violator images oversampled 2×) plus 2,537 curated "headwear" images from a second dataset; picked on val from 9 experiments (`reports/model_comparison.md`). Without Helmet threshold 0.31 (tuned on val for F2).
 
-**Held-out test set** (63 images, 184 boxes), measured with `scripts/evaluate.py`:
+| Held-out evaluation | Result | Previous model |
+|---|---|---|
+| Original test set (63 images), mAP50 / Without Helmet AP50 | **0.937** / 0.889 | 0.917 / 0.881 |
+| Headwear test set (635 images), mAP50 / no-helmet recall | **0.810** / 0.763 | 0.320 / 0.285 |
+| Video, per rider (14 s clip, 12 violators): violation recall at 100% precision | **8/12** | 5/12 |
 
-| Class | Precision | Recall | mAP50 | mAP50-95 |
-|---|---|---|---|---|
-| With Helmet | 0.949 | 0.927 | 0.952 | 0.517 |
-| **Without Helmet** | 0.857 | **0.885** | 0.881 | 0.435 |
-| All | 0.903 | 0.906 | 0.917 | 0.476 |
+First baseline (YOLOv8s, 30 epochs) for comparison: original test mAP50 0.873, Without Helmet AP50 0.799.
 
-First baseline (YOLOv8s, 30 epochs) for comparison: Without Helmet mAP50 0.799, recall 0.721, all mAP50 0.873.
-
-**Main remaining weakness:** false alarms in crowds around bikes (people standing with bicycles, unlabeled pillion riders), and small *With Helmet* heads (val recall 0.69 below 32 px). Pedestrian false alarms mostly disappeared with the new model (66 → 18 on val).
+**Main remaining weaknesses:** far-away riders (heads under ~36 px) are not tracked; pedestrians without helmets can be flagged (no "is riding" signal); plate OCR misreads some characters and can take the plate of a closer bike; a rider hidden for a moment can be logged twice.
 
 **Dataset caveats:** the 3,546 training images are Roboflow augmentations of far fewer originals, and the valid/test sets are small (126/63 images), so metrics are noisy.
 
@@ -61,7 +59,6 @@ Model selection (Kaggle T4, 7 experiments):
 Optional follow-ups:
 - [ ] Train the winner for 100 epochs (every run's best epoch was 41–48 of 50)
 - [ ] Merge a second helmet dataset with more violators and night/CCTV images
-- [ ] Re-run the training notebook on Kaggle so its Step 6 test-set outputs are saved
 
 ## Phase 2: Video system ✅ done
 

@@ -109,10 +109,9 @@ helmet-violation-detection/
 │   ├── tracking.py                 # per-track voting and violation rule (pure Python, unit-tested)
 │   ├── violation_log.py            # SQLite violation log (written as violations happen) + viewer
 │   ├── metrics.py                  # shared prediction-to-ground-truth matching
-│   └── utils.py                    # helpers
+│   └── utils.py                    # thresholds + image listing helpers
 ├── notebook/
-│   ├── helmet_detection_training.ipynb   # data exploration, baseline training, evaluation (Kaggle or local)
-│   └── experiments_kaggle.ipynb          # Kaggle GPU: train and compare all experiment configs
+│   └── experiments_kaggle.ipynb    # Kaggle GPU: downloads the data, trains and compares experiment configs
 ├── reports/                        # generated analysis reports + error gallery
 ├── models/best.pt                  # trained weights, YOLO26s (20 MB)
 ├── data/data.yaml                  # dataset config (images are downloaded separately)
@@ -177,13 +176,12 @@ streamlit run app.py
 - Tuned per-class thresholds (default) or one adjustable threshold
 - Counts riders with/without helmets and flags violations
 
-### Inference
+### Inference on images
 ```bash
 python scripts/detect.py --source data/test/images --n_samples 5   # tuned thresholds from configs/thresholds.yaml
 python scripts/detect.py --source samples/image1.jpg --conf 0.4    # one threshold for all classes
-python scripts/detect.py --source path/to/video.mp4                # video
 ```
-Annotated outputs go to `results/detect/run_<timestamp>/`, and a zip of them goes to `light_bundles/`.
+Annotated images go to `results/detect/run_<timestamp>/`. For video, webcam or a camera stream use `track_video.py` (below).
 
 ### Video: track riders and flag violations
 `detect.py` labels every frame on its own, so one rider becomes hundreds of detections. `track_video.py` follows each head with **ByteTrack** and makes **one decision per rider**:

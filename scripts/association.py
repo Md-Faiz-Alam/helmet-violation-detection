@@ -12,7 +12,7 @@ A head is "on" a vehicle if |dx| <= max_dx, min_dy <= dy <= max_dy, and the head
 max_head_ratio x the vehicle (a big close-up head over a small far-away bike is not its rider).
 """
 
-from dataclasses import asdict, dataclass
+from dataclasses import dataclass
 
 VEHICLE_CLASSES = ("bicycle", "motorcycle")
 
@@ -24,9 +24,6 @@ class AssociationRule:
     max_dy: float = 0.5
     max_head_ratio: float = 1.2
     vehicle_conf: float = 0.25
-
-    def as_dict(self):
-        return asdict(self)
 
 
 def offsets(head, vehicle):
