@@ -107,7 +107,7 @@ def run(args):
     settings = {"imgsz": detector.imgsz, "thresholds": thresholds, "tracker": args.tracker,
                 "vid_stride": args.vid_stride, "min_frames": args.min_frames, "min_ratio": args.min_ratio,
                 "finalize_after": args.finalize_after, "plates": not args.no_plates, "plate_format": args.plate_format,
-                "runtime": "onnxruntime"}
+                "riding_check": args.min_ride_ratio if args.riding_check else None, "runtime": "onnxruntime"}
     log = ViolationLog(args.db)
     run_id = log.start_run(args.source, args.weights, out_dir.resolve(), settings)
 
@@ -122,12 +122,19 @@ def run(args):
         except ImportError:
             print("Plate reading off: pip install rapidocr_onnxruntime (or pass --no-plates)")
 
+    vehicle_detector = None
+    if args.riding_check:  # same COCO model as plate reading, run separately on the main loop
+        if not os.path.exists(args.vehicle_model):
+            raise SystemExit(f"Vehicle model not found: {args.vehicle_model}. Export it: python scripts/export_onnx.py --vehicles")
+        vehicle_detector = OnnxDetector(args.vehicle_model)
+
     analyzer = VideoAnalyzer(detector, thresholds, out_dir, log=log, run_id=run_id,
                              tracker_config=ByteTrackConfig.from_yaml(args.tracker), fps=src_fps,
                              vid_stride=args.vid_stride, min_frames=args.min_frames, min_ratio=args.min_ratio,
                              uncertain_ratio=args.uncertain_ratio, finalize_after=args.finalize_after,
                              plate_reader=plate_reader, plate_frames=args.plate_frames,
-                             plate_min_agree=args.plate_min_agree)
+                             plate_min_agree=args.plate_min_agree, vehicle_detector=vehicle_detector,
+                             riding_every=args.riding_every, min_ride_ratio=args.min_ride_ratio)
 
     print(f"Source: {args.source} ({src_fps:.1f} FPS{f', {total} frames' if total else ''}) | imgsz {detector.imgsz} | "
           f"thresholds {thresholds} | stride {args.vid_stride} | log: {args.db} (run {run_id})")
@@ -275,6 +282,11 @@ if __name__ == "__main__":
     ap.add_argument("--vehicle-model", default="models/vehicles.onnx",
                     help="COCO detector (ONNX) used to find the rider's vehicle")
     ap.add_argument("--db", default="results/violations.db", help="SQLite violation log (created if missing)")
+    ap.add_argument("--riding-check", action="store_true",
+                    help="Only log violations for heads on a motorcycle (not pedestrians, not cyclists)")
+    ap.add_argument("--riding-every", type=int, default=2, help="Riding check every Nth processed frame")
+    ap.add_argument("--min-ride-ratio", type=float, default=0.5,
+                    help="Share of a track's riding checks that must find it on a motorcycle")
     ap.add_argument("--no-boxes", action="store_true", help="Don't write track_boxes.csv (long streams)")
     ap.add_argument("--out", default="results/video")
     run(ap.parse_args())

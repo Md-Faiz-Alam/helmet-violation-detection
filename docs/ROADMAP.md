@@ -53,9 +53,9 @@ In order of expected impact:
    not on the test clips, where it logged pedestrians in crowds ([report](../reports/video_input_size.md)), so the
    riding check (item 2) comes first; then retry 960, add more headwear and back-view data, and add a crowded,
    pedestrian-heavy clip to the validation set.
-2. **"Is this person riding?"** The next step. All 6 false violations on the test clips are pedestrians or other
-   non-riders, and they are what stops a larger input from helping. Measure a
-   temporal head-on-vehicle check on the validation clips.
+2. **"Is this person riding?"** A per-frame check (head on a motorcycle) is built and helps at 640 (test precision
+   78% → 86%, no violator lost: [report](../reports/video_riding_check.md)). Pedestrians standing among the bikes at a
+   crowded junction still pass it; next, check that the person moves *with* the vehicle, then retry 960.
 3. **Plate reading.** A plate-specific recognizer (for example fast-plate-ocr), measured on the saved plate crops;
    stricter vehicle matching so a rider behind another bike does not get its plate.
 4. **Production hardening.** Error monitoring and alerts, model versioning, and a job queue that survives restarts if

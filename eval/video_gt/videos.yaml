@@ -64,3 +64,10 @@ videos:
     creator: Vikesh zen
     page: https://www.pexels.com/video/30983473/
     download: https://videos.pexels.com/video-files/30983473/13244471_1080_1920_60fps.mp4
+
+  - name: lucknow_market_street
+    split: val
+    scene: market street, riders among pedestrians, cycle-rickshaws and stalls (for tuning a "who is riding" check)
+    creator: Hindustani Lens
+    page: https://www.pexels.com/video/20613696/
+    download: https://videos.pexels.com/video-files/20613696/20613696-hd_1920_1080_30fps.mp4

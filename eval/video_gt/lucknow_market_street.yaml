@@ -1,0 +1,165 @@
+# Ground truth for scripts/eval_video.py (validation clip: for tuning video settings). See annotation.
+video: lucknow_market_street.mp4
+frames: 449
+fps: 29.97
+resolution: [1920, 1080]
+source: https://www.pexels.com/video/20613696/ (Pexels license, by Hindustani Lens)
+download: https://videos.pexels.com/video-files/20613696/20613696-hd_1920_1080_30fps.mp4
+annotation:
+  method: 'crowded market street, chosen to tune a ''who is riding'' check: tracker boxes from a high-recall run (1280 px
+    input, low tracker thresholds) plus COCO person-on-two-wheeler proposals; every entry checked by eye on enlarged crops.
+    Pedestrians (walking, at stalls, loading goods) and cycle-rickshaw pullers and passengers (three wheels, not two-wheeler
+    riders) are deliberately not riders: a violation logged on them counts as a false log. 2 people with a bicycle whose riding
+    could not be told from the crops (draft R12, R121/R210) are left out. The pillion in the pink headscarf got 3 hand-drawn
+    keyframes (the drafts boxed flags above her head); owner review: the woman in a headscarf at the right edge (draft R34/A1)
+    stands beside the red scooter, not on it: removed'
+  annotated_by: Md Faiz Alam (keyframes drafted with scripts/video_gt_draft.py from a high-recall tracker run, plus COCO rider
+    proposals for riders the tracker missed; corrected by hand)
+  reviewed_by: 'Md Faiz Alam (project owner), 2026-11-22: all labels confirmed except the woman beside the red scooter, who
+    is not riding (removed)'
+  rules: 'rider = person on a two-wheeler (driver or pillion); bicycle riders are labelled with vehicle: bicycle and need
+    no helmet (never violators); helmet true/false/''unclear''; plate only if a person can read it; keyframes = head boxes
+    [x1, y1, x2, y2] in pixels of this resolution, keyed by 1-based frame number; riders whose head is never >= 24 px tall
+    are ignored by eval_video.py'
+riders:
+- id: R1
+  helmet: true
+  plate: null
+  description: black jacket, black helmet, motorcycle, start of the clip
+  keyframes:
+    1: [1373, 328, 1523, 469]
+    41: [953, 408, 1029, 485]
+- id: R2
+  helmet: true
+  plate: null
+  description: brown jacket, red and black helmet, scooter
+  keyframes:
+    43: [1644, 511, 1756, 639]
+    50: [1452, 167, 1773, 436]
+    53: [1373, 200, 1619, 442]
+    251: [865, 302, 908, 357]
+- id: R3
+  helmet: true
+  plate: null
+  description: black helmet, grey backpack, motorcycle
+  keyframes:
+    89: [1456, 207, 1638, 387]
+    155: [938, 295, 983, 349]
+- id: R4
+  helmet: true
+  plate: null
+  description: black helmet, in the traffic ahead
+  keyframes:
+    167: [814, 297, 843, 342]
+    185: [832, 328, 867, 380]
+    237: [926, 337, 957, 376]
+- id: R5
+  helmet: true
+  plate: null
+  description: black helmet, black backpack, motorcycle
+  keyframes:
+    191: [986, 351, 1016, 397]
+    225: [988, 343, 1021, 391]
+    257: [1023, 308, 1056, 351]
+- id: R6
+  helmet: false
+  plate: null
+  description: red headscarf, pink jacket, red scooter
+  keyframes:
+    195: [1007, 358, 1030, 399]
+    227: [1170, 338, 1206, 393]
+    257: [1382, 272, 1451, 373]
+    260: [1407, 262, 1481, 405]
+    267: [1538, 259, 1636, 373]
+- id: R7
+  helmet: false
+  plate: null
+  description: man on a scooter (UP32 plate)
+  keyframes:
+    225: [1233, 350, 1268, 391]
+    243: [1312, 326, 1346, 366]
+    275: [1483, 301, 1544, 384]
+- id: R8
+  helmet: false
+  plate: null
+  description: older man in a green cap on a red motorcycle
+  keyframes:
+    232: [1090, 316, 1117, 366]
+    239: [1103, 325, 1129, 363]
+    246: [1137, 315, 1165, 358]
+    253: [1172, 304, 1201, 351]
+    257: [1191, 301, 1223, 350]
+    271: [1264, 289, 1305, 350]
+    281: [1319, 289, 1367, 362]
+    295: [1444, 284, 1507, 380]
+    309: [1506, 348, 1552, 393]
+    330: [1502, 346, 1558, 403]
+- id: R9
+  helmet: false
+  plate: null
+  description: light-blue shirt, black vest, motorcycle driver
+  keyframes:
+    267: [1111, 316, 1136, 358]
+    269: [1588, 255, 1667, 376]
+    279: [1158, 322, 1184, 365]
+    289: [1190, 319, 1229, 378]
+    323: [1534, 276, 1636, 422]
+- id: R10
+  helmet: false
+  plate: null
+  description: dark jacket, pillion behind the light-blue-shirt driver
+  keyframes:
+    271: [1635, 251, 1727, 377]
+    307: [1285, 302, 1339, 406]
+    317: [1401, 309, 1462, 421]
+    325: [1589, 273, 1707, 425]
+    327: [1553, 242, 1641, 388]
+    329: [1608, 231, 1734, 391]
+- id: R11
+  helmet: false
+  plate: null
+  description: dark hair, motorcycle driver near the pink-headscarf pillion
+  keyframes:
+    297: [1238, 242, 1323, 356]
+    331: [986, 333, 1028, 391]
+- id: R12
+  helmet: true
+  plate: null
+  description: black helmet, motorcycle, late in the clip
+  keyframes:
+    401: [628, 337, 663, 383]
+    407: [623, 330, 661, 381]
+    417: [631, 310, 668, 361]
+- id: R13
+  helmet: false
+  plate: null
+  description: maroon shirt, motorcycle (missed by the tracker)
+  keyframes:
+    29: [1253, 415, 1298, 491]
+    36: [1177, 444, 1225, 498]
+    50: [1041, 441, 1082, 489]
+    57: [986, 438, 1020, 485]
+- id: R14
+  helmet: false
+  plate: null
+  description: woman pillion at the right edge (missed by the tracker)
+  keyframes:
+    274: [1698, 242, 1848, 456]
+    288: [1689, 298, 1783, 415]
+- id: R15
+  helmet: false
+  plate: null
+  description: pink headscarf, pillion, mostly from behind (missed by the tracker)
+  keyframes:
+    297: [1300, 245, 1400, 350]
+    400: [683, 318, 733, 372]
+    442: [735, 178, 782, 232]
+- id: R16
+  helmet: false
+  plate: null
+  description: pink shirt, white head-wrap, riding a bicycle towards the camera
+  vehicle: bicycle
+  keyframes:
+    365: [891, 349, 918, 384]
+    407: [878, 310, 913, 357]
+    449: [1085, 88, 1154, 182]

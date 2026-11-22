@@ -19,10 +19,19 @@ from pathlib import Path
 import cv2
 import numpy as np
 
+from ridesafe.association import AssociationRule, associate
 from ridesafe.bytetrack import ByteTrackConfig, ByteTracker
 from ridesafe.plates import BestFrames
 from ridesafe.tracking import SAFE_CLASS, VIOLATION_CLASS, ViolationTracker
 
+def box_iou(a, b):
+    ix = max(0.0, min(a[2], b[2]) - max(a[0], b[0]))
+    iy = max(0.0, min(a[3], b[3]) - max(a[1], b[1]))
+    union = (a[2] - a[0]) * (a[3] - a[1]) + (b[2] - b[0]) * (b[3] - b[1]) - ix * iy
+    return ix * iy / union if union > 0 else 0.0
+
+
+RIDING_RULE = AssociationRule(vehicle_conf=0.2)  # riding check: head over a motorcycle/bicycle (association.py)
 DETECT_CONF = 0.1  # low, so ByteTrack's second stage can keep weak detections on existing tracks
 RED = (40, 40, 230)
 
@@ -49,12 +58,21 @@ def label_snapshot(img, text):
 class VideoAnalyzer:
     def __init__(self, detector, thresholds, out_dir, *, log=None, run_id=None, tracker_config=None, fps=0.0,
                  vid_stride=1, min_frames=5, min_ratio=0.6, uncertain_ratio=0.4, finalize_after=30,
-                 plate_reader=None, plate_frames=5, plate_min_agree=2, caption_plates=True, on_message=print):
+                 plate_reader=None, plate_frames=5, plate_min_agree=2, caption_plates=True, on_message=print,
+                 vehicle_detector=None, riding_every=2, min_ride_ratio=0.5, min_ride_checks=2):
+        """vehicle_detector: a COCO OnnxDetector; when given, the riding check is on (ridesafe.tracking): every
+        `riding_every` processed frames, heads are matched to the motorcycles and bicycles in the frame, and only
+        tracks on a motorcycle in at least `min_ride_ratio` of their checks can be violations."""
         self.detector = detector
         self.names = detector.names
         self.bytetrack = ByteTracker(tracker_config or ByteTrackConfig())
         self.tracker = ViolationTracker(thresholds, min_frames=min_frames, min_ratio=min_ratio,
-                                        uncertain_ratio=uncertain_ratio, finalize_after=finalize_after)
+                                        uncertain_ratio=uncertain_ratio, finalize_after=finalize_after,
+                                        min_ride_ratio=min_ride_ratio if vehicle_detector else None,
+                                        min_ride_checks=min_ride_checks)
+        self.vehicles, self.riding_every = vehicle_detector, riding_every
+        if vehicle_detector:
+            self.two_wheelers = {i: n for i, n in vehicle_detector.names.items() if n in ("motorcycle", "bicycle")}
         self.out_dir = Path(out_dir)
         (self.out_dir / "violations").mkdir(parents=True, exist_ok=True)
         self.log, self.run_id = log, run_id
@@ -86,6 +104,8 @@ class VideoAnalyzer:
         tracked = [(int(tid), self.names[int(c)], float(conf), [x1, y1, x2, y2])
                    for x1, y1, x2, y2, tid, conf, c in tracks.tolist()]
 
+        if self.vehicles and self.processed % self.riding_every == 0:
+            self._check_riding(frame, tracked)
         for t in self.tracker.update(self.processed, tracked, frame_size=(frame.shape[1], frame.shape[0])):
             self._on_violation(t)
 
@@ -107,6 +127,26 @@ class VideoAnalyzer:
             for tid in [tid for tid in store if tid not in self.tracker.open]:
                 del store[tid]
         return tracked
+
+    def _check_riding(self, frame, tracked):
+        """Riding check: which two-wheeler (if any) is each head on? Only run while some open track has a
+        no-helmet vote, since only those can become violations (helmeted traffic costs nothing extra)."""
+        if self.vehicles is None or not any(t.votes.get(VIOLATION_CLASS, 0) for t in self.tracker.open.values()):
+            return
+        suspects = [(tid, box) for tid, _, _, box in tracked]
+        pred = self.vehicles(frame, conf=RIDING_RULE.vehicle_conf)
+        found = [(tuple(p[:4]), float(p[4]), self.two_wheelers[int(p[5])]) for p in pred
+                 if int(p[5]) in self.two_wheelers]
+        # The detector can box one two-wheeler twice, as bicycle and as motorcycle: keep the more confident
+        found.sort(key=lambda v: -v[1])
+        kept = []
+        for v in found:
+            if all(box_iou(v[0], k[0]) < 0.7 for k in kept):
+                kept.append(v)
+        found = kept
+        match = associate([box for _, box in suspects], [(b, c) for b, c, _ in found], RIDING_RULE)
+        for (tid, _), j in zip(suspects, match, strict=True):
+            self.tracker.observe_riding(tid, found[j][2] if j >= 0 else None)
 
     def label(self, track_id):
         """Current (provisional) label of a track: Without Helmet / Uncertain / With Helmet / None."""

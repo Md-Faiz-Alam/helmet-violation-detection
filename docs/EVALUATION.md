@@ -83,7 +83,7 @@ The violation-class threshold is tuned **on the validation set** to maximize F2 
 
 The video benchmark has 4 **test** clips (reported only, never used for tuning) and 4 **validation** clips (for tuning video settings), all from Pexels ([manifest](../eval/video_gt/videos.yaml); `python scripts/download_eval_videos.py` fetches them). Every rider in the test clips was labelled in [`eval/video_gt/`](../eval/video_gt/) (helmet yes/no, readable plate, head boxes): drafted from the tracker's boxes, checked by hand on 1080p crops and reviewed by the author, who corrected entries that were not riders. [scripts/eval_video.py](../scripts/eval_video.py) scores each **rider**, not each frame.
 
-The validation clips (43 riders, 23 violators) were labelled the same way, with two additions, because a draft built
+The first 4 validation clips (43 riders, 23 violators) were labelled the same way, with two additions, because a draft built
 only from the helmet model's tracks cannot contain the riders that model misses: the drafts came from a high-recall
 run (1280 px input, low tracker thresholds), and an independent COCO check (a person on a motorcycle or bicycle with no
 tracked head) proposed the riders the model never boxed, including 5 of the 9 riders at the railway crossing. Every
@@ -95,6 +95,12 @@ production settings: 12 of 23 violators caught (52%), 12 of 16 logs correct (75%
 precision from 75% to 89%. On the test clips it did not hold: recall 45% → 42% and precision 78% → 40%, because the
 larger input also finds more pedestrians' heads in crowded scenes, and the system has no signal for who is riding.
 Production stays at 640; a riding check comes first. Details: [reports/video_input_size.md](../reports/video_input_size.md).
+
+**Riding check.** Only a head that sits on a motorcycle (COCO model, checked every 2nd frame while someone has a
+no-helmet vote) can be a violator; mostly on a bicycle is a cyclist. On a fifth validation clip, a crowded market
+street, and then on the test clips it kept every violator and raised precision at 640 from 78% to 86% on test. It does
+not rescue 960: pedestrians standing among the bikes at a crowded junction still pass a per-frame geometric check.
+Details: [reports/video_riding_check.md](../reports/video_riding_check.md).
 
 | Test clip | Scene | Riders (no helmet) | Violation recall | Violation precision |
 |---|---|---|---|---|

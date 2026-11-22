@@ -15,6 +15,11 @@ overlapping heads), so no single frame decides anything. Each track collects vot
   * A track that is not a violation but has at least `uncertain_ratio` no-helmet votes (e.g. 16 of
     33) is **Uncertain**, not "With Helmet": the evidence is split and a person should look at it.
   * Tracks seen in fewer than `min_frames` frames are ignored in the counts (one-off false alarms).
+  * Optional riding check (`min_ride_ratio`): the helmet model cannot tell a rider from a pedestrian, so
+    the video pipeline can record, every few frames, whether each head sits on a motorcycle or a bicycle
+    (ridesafe.association). A track is then only a violation if it was on a motorcycle in at least
+    `min_ride_ratio` of at least `min_ride_checks` checks; mostly on a bicycle is a **Cyclist** (no helmet
+    rule for bicycles), too little evidence of riding is **Not riding**. Off (None) by default.
 """
 
 from dataclasses import dataclass, field
@@ -22,6 +27,8 @@ from dataclasses import dataclass, field
 VIOLATION_CLASS = "Without Helmet"
 SAFE_CLASS = "With Helmet"
 UNCERTAIN = "Uncertain"  # many no-helmet votes, but not enough to call it a violation
+NOT_RIDING = "Not riding"  # riding check on: the head was rarely on a two-wheeler (a pedestrian)
+CYCLIST = "Cyclist"  # riding check on: mostly on a bicycle, where no helmet is required
 
 
 @dataclass
@@ -37,6 +44,9 @@ class TrackState:
     first_violation_frame: int = -1                  # first frame where the rule held (event timestamp)
     finalized: bool = False
     violation: bool = False                          # final decision, set when finalized
+    ride_checks: int = 0                             # riding check: frames where it was looked for
+    on_motorcycle: int = 0                           # ... and found the head on a motorcycle
+    on_bicycle: int = 0                              # ... or on a bicycle
 
     @property
     def total_votes(self):
@@ -53,7 +63,7 @@ class ViolationTracker:
     """Accumulates tracked detections frame by frame and decides, per track, who is a violator."""
 
     def __init__(self, thresholds, min_frames=5, min_ratio=0.6, uncertain_ratio=0.4, finalize_after=30,
-                 edge_margin=2, default_threshold=0.25):
+                 edge_margin=2, default_threshold=0.25, min_ride_ratio=None, min_ride_checks=2):
         self.thresholds = dict(thresholds or {})
         self.default_threshold = default_threshold
         self.min_frames = min_frames
@@ -61,6 +71,7 @@ class ViolationTracker:
         self.uncertain_ratio = uncertain_ratio
         self.finalize_after = finalize_after
         self.edge_margin = edge_margin
+        self.min_ride_ratio, self.min_ride_checks = min_ride_ratio, min_ride_checks
         self.tracks = {}   # open (and recently finalized) tracks by ID
         self.open = {}     # only the undecided tracks: the per-frame work does not grow with run length
         self.archive = []  # finalized tracks whose ID was later reused
@@ -71,19 +82,48 @@ class ViolationTracker:
     def threshold(self, cls_name):
         return self.thresholds.get(cls_name, self.default_threshold)
 
+    def riding(self, t):
+        """None if the riding check is off; else 'motorcycle', 'bicycle' or None (not riding / no evidence)."""
+        if self.min_ride_ratio is None:
+            return None
+        if t.ride_checks < self.min_ride_checks:
+            return None
+        if t.on_bicycle > t.on_motorcycle and t.on_bicycle / t.ride_checks >= self.min_ride_ratio:
+            return "bicycle"
+        return "motorcycle" if t.on_motorcycle / t.ride_checks >= self.min_ride_ratio else None
+
+    def may_violate(self, t):
+        """Riding check off, or the track rides a motorcycle (helmets are required there, not on bicycles)."""
+        return self.min_ride_ratio is None or self.riding(t) == "motorcycle"
+
     def is_violating(self, t):
         """The violation rule on the votes so far (provisional while the track is alive)."""
         v = t.votes.get(VIOLATION_CLASS, 0)
-        return v >= self.min_frames and v / t.total_votes >= self.min_ratio
+        return v >= self.min_frames and v / t.total_votes >= self.min_ratio and self.may_violate(t)
 
     def label(self, t):
         """'Without Helmet' only if the violation rule holds; 'Uncertain' if at least `uncertain_ratio`
         of the votes are no-helmet without meeting the rule; otherwise the majority class (None without votes)."""
         if (t.finalized and t.violation) or (not t.finalized and self.is_violating(t)):
             return VIOLATION_CLASS
+        if self.min_ride_ratio is not None and t.votes.get(VIOLATION_CLASS, 0):
+            ride = self.riding(t)
+            if ride == "bicycle":
+                return CYCLIST
+            if ride is None:
+                return NOT_RIDING
         if t.total_votes and t.votes.get(VIOLATION_CLASS, 0) / t.total_votes >= self.uncertain_ratio:
             return UNCERTAIN
         return t.majority()
+
+    def observe_riding(self, track_id, vehicle):
+        """Riding check for one frame: vehicle = 'motorcycle', 'bicycle' or None (on no two-wheeler)."""
+        t = self.tracks.get(track_id)
+        if t is None or t.finalized:
+            return
+        t.ride_checks += 1
+        t.on_motorcycle += vehicle == "motorcycle"
+        t.on_bicycle += vehicle == "bicycle"
 
     def counted(self, t):
         return t.frames_seen >= self.min_frames and t.majority() is not None

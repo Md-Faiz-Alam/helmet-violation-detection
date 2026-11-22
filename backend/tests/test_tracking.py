@@ -1,4 +1,4 @@
-from ridesafe.tracking import SAFE_CLASS, UNCERTAIN, VIOLATION_CLASS, ViolationTracker
+from ridesafe.tracking import CYCLIST, NOT_RIDING, SAFE_CLASS, UNCERTAIN, VIOLATION_CLASS, ViolationTracker
 
 THR = {SAFE_CLASS: 0.25, VIOLATION_CLASS: 0.16}
 BOX = (10, 10, 30, 30)
@@ -112,3 +112,50 @@ def test_only_open_tracks_are_scanned():
     assert set(tr.tracks) == {1, 2}     # still kept for the final report
     tr.finish()
     assert tr.open == {}
+
+
+def riding_track(vehicles, ratio=0.5):
+    """One clear no-helmet track whose riding checks found these vehicles ('motorcycle', 'bicycle', None)."""
+    tr = ViolationTracker(THR, min_frames=5, min_ride_ratio=ratio, min_ride_checks=2)
+    feed(tr, [[(1, VIOLATION_CLASS, 0.9)]] * 10)
+    for v in vehicles:
+        tr.observe_riding(1, v)
+    return tr
+
+
+def test_riding_check_off_by_default():
+    tr = ViolationTracker(THR, min_frames=5)
+    feed(tr, [[(1, VIOLATION_CLASS, 0.9)]] * 10)
+    tr.observe_riding(1, None)  # recorded, but without min_ride_ratio it decides nothing
+    assert [t.track_id for t in tr.finish()] == [1]
+
+
+def test_motorcyclist_without_helmet_is_a_violation():
+    tr = riding_track(["motorcycle", "motorcycle", None, "motorcycle"])
+    assert tr.label(tr.tracks[1]) == VIOLATION_CLASS
+    assert [t.track_id for t in tr.finish()] == [1]
+
+
+def test_pedestrian_is_not_riding():
+    tr = riding_track([None, None, "motorcycle", None])  # next to a bike once, but not on one
+    assert tr.label(tr.tracks[1]) == NOT_RIDING
+    assert tr.finish() == []
+
+
+def test_cyclist_needs_no_helmet():
+    tr = riding_track(["bicycle", "bicycle", None])
+    assert tr.label(tr.tracks[1]) == CYCLIST
+    assert tr.finish() == []
+
+
+def test_too_few_riding_checks_is_not_a_violation():
+    tr = riding_track(["motorcycle"])  # 1 check, 2 needed
+    assert tr.label(tr.tracks[1]) == NOT_RIDING and tr.finish() == []
+
+
+def test_helmeted_pedestrian_keeps_its_helmet_label():
+    tr = ViolationTracker(THR, min_frames=5, min_ride_ratio=0.5)
+    feed(tr, [[(1, SAFE_CLASS, 0.9)]] * 10)
+    tr.observe_riding(1, None)
+    tr.observe_riding(1, None)
+    assert tr.label(tr.tracks[1]) == SAFE_CLASS  # only no-helmet tracks are relabelled

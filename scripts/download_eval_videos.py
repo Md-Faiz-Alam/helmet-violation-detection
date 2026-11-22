@@ -9,6 +9,8 @@ kept as <name>_full.mp4), so everyone evaluates on exactly the same frames.
 
 import argparse
 import shutil
+import subprocess
+import urllib.error
 import urllib.request
 from pathlib import Path
 
@@ -35,6 +37,18 @@ def cut_section(src, dst, start_s, end_s):
     return n
 
 
+def download(url, dst):
+    """Download a file; some hosts refuse Python's HTTP client (HTTP 403), so fall back to curl, if installed."""
+    try:
+        with urllib.request.urlopen(url, timeout=600) as r, open(dst, "wb") as f:
+            shutil.copyfileobj(r, f, length=1 << 20)
+    except urllib.error.HTTPError as e:
+        Path(dst).unlink(missing_ok=True)
+        if e.code != 403 or not shutil.which("curl"):
+            raise
+        subprocess.run(["curl", "-sSL", "--fail", "-o", str(dst), url], check=True, timeout=600)
+
+
 def main(args):
     manifest = yaml.safe_load(Path(args.manifest).read_text(encoding="utf-8"))
     out_dir = Path(args.out)
@@ -49,8 +63,7 @@ def main(args):
         raw = out_dir / (f"{v['name']}_full.mp4" if "section_s" in v else final.name)
         if not raw.exists():
             print(f"↓ {v['name']} from {v['page']} ({v['creator']}, Pexels license)")
-            with urllib.request.urlopen(v["download"], timeout=600) as r, open(raw, "wb") as f:
-                shutil.copyfileobj(r, f, length=1 << 20)
+            download(v["download"], raw)
         if "section_s" in v:
             start, end = v["section_s"]
             n = cut_section(raw, final, start, end)
