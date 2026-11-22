@@ -149,8 +149,14 @@ add_credential() {  # name, subject
       "{\"name\":\"$1\",\"issuer\":\"https://token.actions.githubusercontent.com\",\"subject\":\"$2\",\"audiences\":[\"api://AzureADTokenExchange\"]}"
   fi
 }
-add_credential github-main "repo:$GH_REPO:ref:refs/heads/main"          # deploys from main
-add_credential github-pull-requests "repo:$GH_REPO:pull_request"        # web app previews for pull requests
+# GitHub's token names the repository either as owner/repo or, in the newer format, with the account and
+# repository IDs (owner@123/repo@456); trust both so a format change on GitHub's side does not break deploys
+IDS=$(curl -fsS "https://api.github.com/repos/$GH_REPO" | python3 -c \
+  "import sys, json; d = json.load(sys.stdin); print(f\"{d['owner']['login']}@{d['owner']['id']}/{d['name']}@{d['id']}\")")
+add_credential github-main "repo:$GH_REPO:ref:refs/heads/main"                 # deploys from main
+add_credential github-pull-requests "repo:$GH_REPO:pull_request"               # web app previews for pull requests
+add_credential github-main-ids "repo:$IDS:ref:refs/heads/main"
+add_credential github-pull-requests-ids "repo:$IDS:pull_request"
 RG_SCOPE="/subscriptions/$SUB_ID/resourceGroups/$RG"
 if [ -z "$(az role assignment list --assignee "$SP_ID" --scope "$RG_SCOPE" --role Contributor --query "[0].id" -o tsv)" ]; then
   # A new service principal can take a few seconds to become visible to role assignments
