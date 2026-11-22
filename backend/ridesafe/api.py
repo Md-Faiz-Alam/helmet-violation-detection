@@ -38,6 +38,7 @@ import cv2
 import numpy as np
 from fastapi import Depends, FastAPI, File, Header, HTTPException, Query, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.openapi.docs import get_swagger_ui_html
 from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel, Field
@@ -202,7 +203,11 @@ def create_app(settings=None):
         app.state.jobs.close()
         log.close()
 
-    app = FastAPI(title="RideSafe AI API", version=__version__, lifespan=lifespan,
+    # The docs page and the spec use relative URLs, so they work both at the API's own address (/docs) and
+    # behind a path prefix such as the web app's /api proxy (/api/docs); FastAPI's default page asks for
+    # /openapi.json at the site root, which a prefixed proxy does not forward.
+    app = FastAPI(title="RideSafe AI API", version=__version__, lifespan=lifespan, docs_url=None, redoc_url=None,
+                  servers=[{"url": ".", "description": "this server"}],
                   description="Helmet violation detection for two-wheeler riders: image detection, video jobs "
                               "with per-rider decisions, and a review queue. Source code (AGPL-3.0): "
                               "https://github.com/Md-Faiz-Alam/helmet-violation-detection")
@@ -259,6 +264,10 @@ def create_app(settings=None):
         if v is None or job is None:  # rows of CLI runs are not exposed through the API
             raise HTTPException(404, "Violation not found")
         return v, job
+
+    @app.get("/docs", include_in_schema=False)
+    def docs():
+        return get_swagger_ui_html(openapi_url="openapi.json", title="RideSafe AI API")
 
     # ------------------------------------------------------------------ service
 

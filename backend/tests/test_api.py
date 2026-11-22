@@ -99,6 +99,15 @@ def test_health_and_model(make_client):
     assert m["demo"] is False and m["limits"]["vid_stride"] == 2
 
 
+def test_docs_work_behind_a_path_prefix(make_client):
+    """The web app proxies the API under /api: the docs must not ask for /openapi.json at the site root."""
+    c = make_client()
+    page = c.get("/docs").text
+    assert "url: 'openapi.json'" in page and "'/openapi.json'" not in page
+    spec = c.get("/openapi.json").json()
+    assert spec["servers"][0]["url"] == "." and "/detect" in spec["paths"]
+
+
 def test_detect(make_client):
     c = make_client(max_image_mb=0.01)
     r = c.post("/detect", files={"file": ("a.png", png(square_image()), "image/png")})
