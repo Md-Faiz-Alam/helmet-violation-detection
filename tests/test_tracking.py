@@ -103,3 +103,12 @@ def test_best_violation_frame_kept():
     feed(tr, [[(7, VIOLATION_CLASS, 0.4)], [(7, VIOLATION_CLASS, 0.9)], [(7, VIOLATION_CLASS, 0.6)]])
     t = tr.tracks[7]
     assert t.best_violation_conf == 0.9 and t.best_violation_frame == 2
+
+
+def test_only_open_tracks_are_scanned():
+    tr = ViolationTracker(THR, min_frames=2, finalize_after=2)
+    feed(tr, [[(1, SAFE_CLASS, 0.9), (2, SAFE_CLASS, 0.9)]] * 3 + [[(2, SAFE_CLASS, 0.9)]] * 4)
+    assert set(tr.open) == {2}          # track 1 left and was decided
+    assert set(tr.tracks) == {1, 2}     # still kept for the final report
+    tr.finish()
+    assert tr.open == {}

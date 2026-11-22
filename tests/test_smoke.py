@@ -50,7 +50,8 @@ def test_detect_on_sample_image():
 def test_track_video_end_to_end(tmp_path):
     clip = tmp_path / "clip.mp4"
     make_clip(clip)
-    run_script("scripts/track_video.py", "--source", clip, "--no-plates", "--out", tmp_path / "out")
+    db = tmp_path / "violations.db"
+    run_script("scripts/track_video.py", "--source", clip, "--no-plates", "--out", tmp_path / "out", "--db", db)
     run = next((tmp_path / "out").iterdir())
     for name in ("annotated.mp4", "tracks.csv", "track_boxes.csv", "summary.json"):
         assert (run / name).exists(), name
@@ -59,6 +60,14 @@ def test_track_video_end_to_end(tmp_path):
     assert summary["riders"] >= 3  # several heads stay in view for the whole pan
     with open(run / "track_boxes.csv", encoding="utf-8") as f:
         assert len(list(csv.DictReader(f))) > 30
+
+    # the SQLite log has a finished run, and one row per logged violation
+    from violation_log import ViolationLog
+    log = ViolationLog(db)
+    [r] = log.runs()
+    assert r["status"] == "finished" and r["frames_processed"] == 30
+    assert len(log.violations(r["id"])) == summary["violations"]
+    log.close()
 
 
 def test_streamlit_app_on_sample(monkeypatch):

@@ -63,6 +63,7 @@ class ViolationTracker:
         self.finalize_after = finalize_after
         self.edge_margin = edge_margin
         self.tracks = {}   # open (and recently finalized) tracks by ID
+        self.open = {}     # only the undecided tracks: the per-frame work does not grow with run length
         self.archive = []  # finalized tracks whose ID was later reused
         self.events = []  # finalized violations in the order they were decided
 
@@ -112,6 +113,7 @@ class ViolationTracker:
                 t = None
             if t is None:
                 t = self.tracks[track_id] = TrackState(track_id, first_frame=frame_idx, last_frame=frame_idx)
+                self.open[track_id] = t
             t.last_frame = frame_idx
             t.frames_seen += 1
 
@@ -124,17 +126,18 @@ class ViolationTracker:
             if t.first_violation_frame < 0 and self.is_violating(t):
                 t.first_violation_frame = frame_idx
 
-        stale = [t for t in self.tracks.values() if not t.finalized and frame_idx - t.last_frame > self.finalize_after]
+        stale = [t for t in self.open.values() if frame_idx - t.last_frame > self.finalize_after]
         return self._finalize(stale)
 
     def finish(self):
         """End of video/stream: finalize every track still open."""
-        return self._finalize([t for t in self.tracks.values() if not t.finalized])
+        return self._finalize(list(self.open.values()))
 
     def _finalize(self, tracks):
         logged = []
         for t in tracks:
             t.finalized = True
+            self.open.pop(t.track_id, None)
             t.violation = self.counted(t) and self.is_violating(t)
             if t.violation:
                 self.events.append(t)
