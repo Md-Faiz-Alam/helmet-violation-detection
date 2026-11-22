@@ -10,7 +10,9 @@ download: https://videos.pexels.com/video-files/34395449/14571159_1280_720_60fps
 annotation:
   method: 'model-assisted: tracker boxes as keyframes; identity, helmet and plate of every rider checked by eye (720p crops,
     1080p zooms for small riders and plates); tracker mistakes fixed by hand (3 riders merged from split tracks, 6 edge/ghost
-    tracks removed); human review added 2 riders the draft missed (R40, R41) and changed R7 from unclear to no helmet'
+    tracks removed); human review added 2 riders the draft missed (R40, R41) and changed R7 from unclear to no helmet; R4/R5
+    keyframes for 0-1.0 s added after a later model tracked them there (identity checked by eye; they were partly hidden behind
+    R3 and the first draft missed them)'
   annotated_by: Md Faiz Alam, 2026-11-21
   reviewed_by: Md Faiz Alam (project owner), 2026-11-21
   rules: rider = person on a two-wheeler (driver or pillion); helmet true/false/'unclear'; plate only if a person can read
@@ -68,6 +70,11 @@ riders:
   plate: null
   description: 'bearded driver, white skullcap, grey kurta (plate only partly visible: ...C 7862)'
   keyframes:
+    1: [619, 190, 701, 291]
+    17: [619, 187, 702, 289]
+    33: [608, 171, 715, 285]
+    49: [573, 161, 678, 274]
+    61: [547, 172, 640, 278]
     93: [839, 288, 874, 335]
     109: [830, 292, 868, 342]
     125: [816, 292, 857, 347]
@@ -84,6 +91,9 @@ riders:
   plate: null
   description: pillion behind R4, white skullcap, light shirt
   keyframes:
+    1: [680, 187, 742, 287]
+    17: [672, 179, 739, 287]
+    19: [670, 178, 738, 286]
     189: [244, 110, 369, 251]
     205: [208, 87, 327, 229]
     221: [179, 58, 290, 206]
