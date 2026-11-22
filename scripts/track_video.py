@@ -6,12 +6,12 @@
     python scripts/track_video.py --source rtsp://user:pass@camera-ip/stream         # IP camera
 
 Each head gets a track ID. A rider is flagged as a violation only after "Without Helmet" wins
-enough frames (see scripts/tracking.py), so one bad frame doesn't create a violation, and a
+enough frames (see backend/ridesafe/tracking.py), so one bad frame doesn't create a violation, and a
 rider who stays in view is counted once instead of once per frame.
 
 Every violation is written the moment the rider is decided (crash-safe, readable while a stream runs):
     results/violations.db  SQLite log (runs + violations; plates are filled in by a background thread).
-                           Browse it with: python scripts/violation_log.py [--run N]
+                           Browse it with: python -m ridesafe.violation_log [--run N]
 
 Output (results/video/<name>_<timestamp>/):
     annotated.mp4     video with track IDs, colors and live counts
@@ -39,11 +39,12 @@ import cv2
 import numpy as np
 from ultralytics import YOLO
 
+from ridesafe.plates import BestFrames
+from ridesafe.tracking import SAFE_CLASS, UNCERTAIN, VIOLATION_CLASS, ViolationTracker
+from ridesafe.violation_log import ViolationLog
+
 from metrics import as_numpy, first_result
-from plates import BestFrames
-from tracking import SAFE_CLASS, UNCERTAIN, VIOLATION_CLASS, ViolationTracker
 from utils import DEFAULT_THRESHOLDS, load_thresholds
-from violation_log import ViolationLog
 
 # BGR colors
 GREEN, RED, ORANGE, GRAY = (60, 180, 60), (40, 40, 230), (0, 160, 255), (160, 160, 160)

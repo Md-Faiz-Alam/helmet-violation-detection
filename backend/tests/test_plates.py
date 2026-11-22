@@ -1,4 +1,4 @@
-from plates import BestFrames, clean_plate, coerce_india, is_valid, normalize, plate_candidates, vote
+from ridesafe.plates import BestFrames, clean_plate, coerce_india, is_valid, normalize, plate_candidates, vote
 
 
 def test_normalize():

@@ -1,0 +1,28 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ridesafe"
+description = "Helmet violation detection runtime: ONNX Runtime detector, per-rider decisions, plate rules, violation log"
+requires-python = ">=3.11"
+license = "AGPL-3.0-only"
+authors = [{ name = "Md Faiz Alam" }]
+dynamic = ["version"]
+dependencies = [
+    "numpy>=2.0",
+    "onnxruntime>=1.20",
+    "pyyaml>=6.0",
+]
+
+[project.optional-dependencies]
+# OpenCV is required, but which build depends on the environment: the dev setup gets opencv-python from
+# requirements.txt (RapidOCR needs it), the API image installs this headless build. Both provide `cv2`,
+# and installing both in one environment breaks it, so the package does not pick one by itself.
+headless = ["opencv-python-headless>=4.10"]
+
+[tool.setuptools.dynamic]
+version = { attr = "ridesafe.__version__" }
+
+[tool.setuptools.packages.find]
+include = ["ridesafe*"]

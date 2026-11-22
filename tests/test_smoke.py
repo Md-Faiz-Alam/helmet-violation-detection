@@ -62,7 +62,7 @@ def test_track_video_end_to_end(tmp_path):
         assert len(list(csv.DictReader(f))) > 30
 
     # the SQLite log has a finished run, and one row per logged violation
-    from violation_log import ViolationLog
+    from ridesafe.violation_log import ViolationLog
     log = ViolationLog(db)
     [r] = log.runs()
     assert r["status"] == "finished" and r["frames_processed"] == 30
@@ -78,7 +78,7 @@ def test_onnx_export_matches_pytorch(tmp_path):
     from ultralytics import YOLO
 
     from metrics import box_iou, predict_array
-    from onnx_detector import OnnxDetector
+    from ridesafe.detector import OnnxDetector
 
     img = cv2.imread(str(SAMPLE))
     ref = predict_array(YOLO(str(ROOT / "models" / "best.pt")), img, conf=0.25, device="cpu")

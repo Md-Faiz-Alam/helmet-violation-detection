@@ -10,3 +10,4 @@ pyyaml==6.0.3
 lap==0.5.14             # ByteTrack matching (scripts/track_video.py)
 rapidocr_onnxruntime==1.2.3  # number-plate OCR (bundled PP-OCRv3 models; uses opencv-python, not headless)
 onnxruntime==1.32.0
+-e ./backend            # the ridesafe runtime package (backend/), editable so scripts use the working copy

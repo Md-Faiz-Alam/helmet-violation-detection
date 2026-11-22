@@ -1,4 +1,4 @@
-from tracking import SAFE_CLASS, UNCERTAIN, VIOLATION_CLASS, ViolationTracker
+from ridesafe.tracking import SAFE_CLASS, UNCERTAIN, VIOLATION_CLASS, ViolationTracker
 
 THR = {SAFE_CLASS: 0.25, VIOLATION_CLASS: 0.16}
 BOX = (10, 10, 30, 30)

@@ -5,11 +5,11 @@
     reading = reader.read(crop, head)                        # {"plate": "MP04ZD7116", "conf": 0.7, ...} or None
 
 Steps for one crop:
-  1. a COCO detector finds bicycles/motorcycles in the crop, and scripts/association.py picks the
+  1. a COCO detector finds bicycles/motorcycles in the crop, and backend/ridesafe/association.py picks the
      one this head is on (so a neighbour's plate is not read by mistake);
   2. RapidOCR (PaddleOCR models on onnxruntime, CPU) reads text in that vehicle box, upscaled
      when small; if no vehicle is found, it reads the area below the head instead;
-  3. scripts/plates.py joins two-line plates, fixes look-alike characters and validates the format.
+  3. backend/ridesafe/plates.py joins two-line plates, fixes look-alike characters and validates the format.
 read_track() does this for a few frames of one rider and votes; a plate is only reported if at
 least `min_agree` frames read the same text (one lucky or unlucky frame is not evidence).
 """
@@ -20,9 +20,10 @@ import cv2
 import numpy as np
 from ultralytics import YOLO
 
-from association import VEHICLE_CLASSES, AssociationRule, associate
+from ridesafe.association import VEHICLE_CLASSES, AssociationRule, associate
+from ridesafe.plates import plate_candidates, vote
+
 from metrics import predict_array
-from plates import plate_candidates, vote
 
 
 # Looser vehicle confidence than the default rule: a partly cropped bike is still the rider's bike

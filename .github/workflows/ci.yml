@@ -30,6 +30,7 @@ jobs:
       - run: >-
           pip install ruff==0.17.6 pytest==9.2.0 pyyaml==6.0.3 numpy==2.5.5 pillow==13.0.0
           opencv-python-headless==5.1.0.95 onnxruntime==1.32.0
+      - run: pip install --no-deps -e backend
       - run: ruff check .
       - run: pytest
 

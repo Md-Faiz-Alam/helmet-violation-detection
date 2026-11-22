@@ -1,4 +1,4 @@
-"""Unit tests for the torch-free ONNX pre/post-processing and the shared mAP50 function (no model needed)."""
+"""Unit tests for the torch-free ONNX pre/post-processing (no model needed)."""
 
 import numpy as np
 import pytest
@@ -6,8 +6,7 @@ import pytest
 pytest.importorskip("cv2")
 pytest.importorskip("onnxruntime")
 
-from metrics import average_precision  # noqa: E402
-from onnx_detector import OnnxDetector, letterbox, nms  # noqa: E402
+from ridesafe.detector import OnnxDetector, letterbox, nms  # noqa: E402
 
 
 def test_letterbox_keeps_aspect_and_centres():
@@ -48,13 +47,3 @@ def test_postprocess_maps_back_to_image_pixels_and_is_class_aware():
 def test_postprocess_empty():
     raw = np.zeros((1, 6, 10), np.float32)
     assert make_detector().postprocess(raw, 1.0, (0, 0), (640, 640, 3), 0.25).shape == (0, 6)
-
-
-def test_average_precision_perfect_and_half():
-    gt = np.array([[0, 0, 0, 10, 10], [0, 20, 20, 30, 30]], float)
-    perfect = {"gt": gt, "pred": np.array([[0, 0, 10, 10, 0.9, 0], [20, 20, 30, 30, 0.8, 0]], float)}
-    # 0.995, not 1.0: the 101-point interpolation ends at precision 0, exactly like Ultralytics' mAP
-    assert average_precision([perfect], 1)[0] == pytest.approx(0.995, abs=1e-6)
-    half = {"gt": gt, "pred": np.array([[0, 0, 10, 10, 0.9, 0]], float)}
-    # recall 0.5 at precision 1; like Ultralytics, precision is interpolated linearly to 0 at recall 1
-    assert average_precision([half], 1)[0] == pytest.approx(0.75, abs=0.01)

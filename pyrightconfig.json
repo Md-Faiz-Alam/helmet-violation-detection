@@ -1,12 +1,14 @@
 {
   "extraPaths": [
-    "scripts"
+    "scripts",
+    "backend"
   ],
   "venvPath": ".",
   "venv": ".venv",
   "pythonVersion": "3.13",
   "include": [
     "app.py",
+    "backend",
     "scripts",
     "tests"
   ],

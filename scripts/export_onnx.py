@@ -4,7 +4,7 @@
     python scripts/export_onnx.py --int8                # also models/best.int8.onnx (static INT8)
 
 The export has a fixed 1x3x640x640 input and the raw detection head output (NMS is done by
-scripts/onnx_detector.py). INT8 uses static quantization (QDQ, per-channel weights) calibrated on
+backend/ridesafe/detector.py). INT8 uses static quantization (QDQ, per-channel weights) calibrated on
 training images, so no validation or test image is seen. Compare the files with scripts/benchmark_onnx.py.
 """
 
@@ -58,7 +58,7 @@ def export_int8(fp32, out, calib_dir, n):
                                           quantize_static)
     from onnxruntime.quantization.shape_inference import quant_pre_process
 
-    from onnx_detector import OnnxDetector
+    from ridesafe.detector import OnnxDetector
 
     det = OnnxDetector(fp32)
 

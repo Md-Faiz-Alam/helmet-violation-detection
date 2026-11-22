@@ -1,4 +1,4 @@
-from association import AssociationRule, associate, offsets, on_vehicle
+from ridesafe.association import AssociationRule, associate, offsets, on_vehicle
 
 BIKE = (100, 200, 200, 300)  # 100 x 100 box
 

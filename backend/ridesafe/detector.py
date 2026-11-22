@@ -1,6 +1,6 @@
 """Torch-free helmet detector on ONNX Runtime: only numpy, OpenCV and onnxruntime are needed.
 
-    from onnx_detector import OnnxDetector
+    from ridesafe.detector import OnnxDetector
     det = OnnxDetector("models/best.onnx")
     boxes = det(cv2.imread("samples/image1.jpg"))   # (M, 6) [x1, y1, x2, y2, conf, cls] in image pixels
 

@@ -1,21 +1,14 @@
-"""Small helpers shared by detect.py and app.py: thresholds and image listing."""
+"""Small helpers shared by detect.py and app.py: thresholds (from the ridesafe package) and image listing."""
 
-import os
 from pathlib import Path
 
 import torch
-import yaml
+
+from ridesafe.thresholds import DEFAULT_THRESHOLDS, load_thresholds
+
+__all__ = ["DEFAULT_THRESHOLDS", "IMAGE_EXTS", "apply_thresholds", "list_images", "load_thresholds"]
 
 IMAGE_EXTS = (".jpg", ".jpeg", ".png", ".bmp", ".webp")
-DEFAULT_THRESHOLDS = "configs/thresholds.yaml"
-
-
-def load_thresholds(path=DEFAULT_THRESHOLDS):
-    """Per-class confidence thresholds {class name: threshold}, or None if the file doesn't exist."""
-    if not path or not os.path.exists(path):
-        return None
-    with open(path, encoding="utf-8") as f:
-        return {str(k): float(v) for k, v in yaml.safe_load(f)["thresholds"].items()}
 
 
 def apply_thresholds(result, thresholds, default=0.25):

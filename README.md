@@ -90,19 +90,26 @@ helmet-violation-detection/
 │   ├── experiments/*.yaml          # one file per experiment (YOLOv8 / YOLO11 / YOLO26, imgsz, oversampling)
 │   ├── thresholds.yaml             # tuned per-class confidence thresholds
 │   └── bytetrack.yaml              # tracker settings, aligned with the tuned thresholds
-├── scripts/
+├── backend/                        # the runtime, torch-free (FastAPI app to be added here)
+│   ├── pyproject.toml              # `ridesafe` package (installed in editable mode by requirements.txt)
+│   ├── ridesafe/
+│   │   ├── detector.py             # OnnxDetector: letterbox, ONNX Runtime, NMS (numpy + OpenCV)
+│   │   ├── tracking.py             # per-track voting and violation rule (pure Python)
+│   │   ├── association.py          # head-to-vehicle geometry (which bike is this head on?)
+│   │   ├── plates.py               # plate format rules, look-alike fixes, voting
+│   │   ├── violation_log.py        # SQLite violation log (written as violations happen) + viewer
+│   │   └── thresholds.py           # per-class thresholds from configs/thresholds.yaml
+│   └── tests/                      # unit tests of the package (no model, no PyTorch)
+├── scripts/                        # ML tooling: training, evaluation, data, video runs (PyTorch via Ultralytics)
 │   ├── train.py                    # config-driven training
 │   ├── evaluate.py                 # per-class metrics + confusion matrix / PR curves
 │   ├── tune_thresholds.py          # per-class threshold tuning (val) + test report
 │   ├── error_analysis.py           # error breakdown, recall by object size, image gallery
-│   ├── association.py              # head-to-vehicle geometry (which bike is this head on?)
 │   ├── plate_reader.py             # violator's vehicle -> OCR -> plate text (RapidOCR, CPU)
-│   ├── plates.py                   # plate format rules, look-alike fixes, voting (unit-tested)
 │   ├── eval_association.py         # tests a head-on-vehicle filter on val/test -> reports/association.md
 │   ├── dataset_audit.py            # split composition (motorcycle/bicycle) + recall per vehicle type
 │   ├── benchmark.py                # model comparison: accuracy, size, CPU latency
 │   ├── export_onnx.py              # models/best.pt -> models/best.onnx (+ optional INT8)
-│   ├── onnx_detector.py            # torch-free detector on ONNX Runtime (numpy + OpenCV)
 │   ├── benchmark_onnx.py           # PyTorch vs ONNX Runtime: same accuracy? how much faster?
 │   ├── make_oversampled_split.py   # oversample violation images (class imbalance)
 │   ├── detect.py                   # inference on an image, folder, or video (frame by frame)
@@ -110,17 +117,15 @@ helmet-violation-detection/
 │   ├── eval_video.py               # scores a video run per rider against hand-labelled ground truth
 │   ├── video_gt_draft.py           # drafts video ground truth from a run, for a human to correct
 │   ├── review_gt.py                # renders ground truth as review sheets (one row per rider)
-│   ├── tracking.py                 # per-track voting and violation rule (pure Python, unit-tested)
-│   ├── violation_log.py            # SQLite violation log (written as violations happen) + viewer
 │   ├── metrics.py                  # shared prediction-to-ground-truth matching + mAP50
-│   └── utils.py                    # thresholds + image listing helpers
+│   └── utils.py                    # image listing + threshold filtering for Ultralytics results
 ├── notebook/
 │   └── experiments_kaggle.ipynb    # Kaggle GPU: downloads the data, trains and compares experiment configs
 ├── reports/                        # generated analysis reports + error gallery
 ├── models/best.pt                  # trained weights, YOLO26s (20 MB)
 ├── data/data.yaml                  # dataset config (images are downloaded separately)
 ├── eval/video_gt/                  # hand-checked video ground truth (YAML; videos are downloaded separately)
-├── tests/                          # pytest unit tests
+├── tests/                          # tests of the scripts + end-to-end smoke tests
 ├── samples/                        # demo images for the app
 ├── docs/PROJECT_REVIEW_AND_PLAN.md # roadmap
 ├── requirements.txt
@@ -166,7 +171,7 @@ python -m venv .venv
 source .venv/bin/activate       # Mac/Linux
 pip install -r requirements.txt
 ```
-Tested with Python 3.13 (3.11+ should work). Run all commands from the project root.
+Tested with Python 3.13 (3.11+ should work). Run all commands from the project root. `requirements.txt` also installs the `ridesafe` package from `backend/` in editable mode, so the scripts use the working copy.
 
 ---
 
@@ -195,7 +200,7 @@ python scripts/track_video.py --source path/to/video.mp4 --show --vid-stride 2  
 python scripts/track_video.py --source 0                                         # webcam
 python scripts/track_video.py --source rtsp://<camera-address>/stream            # IP camera
 ```
-How a violation is decided ([scripts/tracking.py](scripts/tracking.py)):
+How a violation is decided ([backend/ridesafe/tracking.py](backend/ridesafe/tracking.py)):
 - One box per head: class-agnostic NMS removes the occasional second box of the other class on the same head (otherwise ByteTrack sees two riders and logs the violator twice).
 - Every frame where a head passes its class's tuned threshold is a **vote** for that class. Heads cut off by the frame border don't vote, because a half-visible head often looks helmetless.
 - A track is a **violation** if it has at least 5 no-helmet votes **and** they are at least 60% of its votes, counted over the whole track (`--min-frames`, `--min-ratio`).
@@ -225,7 +230,7 @@ With 40 violators the result is still uncertain (95% range for recall roughly 31
 Earlier fixes found on the highway clip: class-agnostic NMS removed duplicate logs (8 logs for 5 people before), and split votes (≥ 40% no-helmet) are shown as **Uncertain** (orange) for a reviewer instead of "With Helmet". To evaluate your own clip: run `track_video.py`, draft labels with `scripts/video_gt_draft.py`, correct them by hand, then run `eval_video.py` (put videos in `data/videos/`, which git ignores).
 
 #### Number plates (best effort)
-For each violator, the 5 frames where they are closest to the camera are kept; a COCO detector finds the vehicle the rider is on ([association.py](scripts/association.py)), RapidOCR reads it, and [plates.py](scripts/plates.py) validates the Indian format (state code, district, series, number), fixes look-alike characters by position (series letters never use I/O, so a 0 there is a D) and votes across frames. A plate is only reported if **at least 2 frames agree**; the output shows how many agreed and the plate's width in pixels. `--no-plates` turns it off.
+For each violator, the 5 frames where they are closest to the camera are kept; a COCO detector finds the vehicle the rider is on ([association.py](backend/ridesafe/association.py)), RapidOCR reads it, and [plates.py](backend/ridesafe/plates.py) validates the Indian format (state code, district, series, number), fixes look-alike characters by position (series letters never use I/O, so a 0 there is a D) and votes across frames. A plate is only reported if **at least 2 frames agree**; the output shows how many agreed and the plate's width in pixels. `--no-plates` turns it off.
 
 Same clip at two resolutions, scored by `eval_video.py` on the 3 violators whose plate a person can read:
 
@@ -240,8 +245,8 @@ Same clip at two resolutions, scored by `eval_video.py` on the 3 violators whose
 #### Violation log (SQLite) and long-running streams
 Every violation is written to **`results/violations.db`** the moment the rider is decided, not at the end of the run, so a crash or Ctrl+C loses nothing and another program (a dashboard, the planned API) can read the log while a camera stream is still running (SQLite WAL mode). Each run is a row in `runs` (source, model, settings, status, speed); each violator a row in `violations` (time, track, votes, snapshot, plate, `review_status` = pending / confirmed / rejected for a human reviewer).
 ```bash
-python scripts/violation_log.py            # list runs
-python scripts/violation_log.py --run 1    # list one run's violations
+python -m ridesafe.violation_log            # list runs
+python -m ridesafe.violation_log --run 1    # list one run's violations
 ```
 For long streams, memory stays flat: data for riders who have been decided is freed, the tracker only checks undecided riders each frame, and plates are read in a **background thread**, so OCR never pauses the video (`--no-boxes` also skips the per-frame box file).
 
@@ -280,7 +285,7 @@ python scripts/benchmark.py                    # -> reports/model_comparison.md
 python scripts/export_onnx.py                  # -> models/best.onnx (add --int8 for models/best.int8.onnx)
 python scripts/benchmark_onnx.py               # -> reports/onnx_benchmark.md (PyTorch vs ONNX FP32 / INT8)
 ```
-[scripts/onnx_detector.py](scripts/onnx_detector.py) runs the exported model with only numpy, OpenCV and ONNX Runtime; it gives the same boxes as PyTorch and is 1.27x faster on the i7-7700K.
+[backend/ridesafe/detector.py](backend/ridesafe/detector.py) runs the exported model with only numpy, OpenCV and ONNX Runtime; it gives the same boxes as PyTorch and is 1.27x faster on the i7-7700K.
 - Runs are saved to `results/train/<experiment>/`. Add `--promote` to copy the best weights to `models/best.pt`, which the app uses.
 - No GPU? Run [notebook/experiments_kaggle.ipynb](notebook/experiments_kaggle.ipynb) on Kaggle (free GPU, 30 h/week). It trains all experiments in one background run and saves the results as the notebook's Output.
 - Experiment tracking: `pip install mlflow`, then set `MLFLOW_TRACKING_URI=sqlite:///mlflow.db`. Ultralytics logs every run to MLflow automatically; browse them with `mlflow ui --backend-store-uri sqlite:///mlflow.db`.

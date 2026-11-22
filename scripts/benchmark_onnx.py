@@ -21,8 +21,9 @@ from datetime import date
 import cv2
 import numpy as np
 
+from ridesafe.detector import OnnxDetector
+
 from metrics import average_precision, box_iou, counts_at, load_split, match_image, prf, predict_array
-from onnx_detector import OnnxDetector
 from utils import load_thresholds
 
 VIOLATION = "Without Helmet"
@@ -147,7 +148,7 @@ PyTorch {torch.__version__} ({torch.get_num_threads()} threads), ONNX Runtime {o
   No-helmet precision / recall at the deployed thresholds ({', '.join(f'{k} {v}' for k, v in thresholds.items())}).
 - **Same boxes as PyTorch:** share of PyTorch detections (deployed thresholds) that the backend also finds with
   the same class at IoU >= 0.5; IoU = mean IoU of those boxes on the test split.
-- The ONNX backends run `scripts/onnx_detector.py` (numpy + OpenCV + onnxruntime, no PyTorch), the same code as the API.
+- The ONNX backends run `backend/ridesafe/detector.py` (numpy + OpenCV + onnxruntime, no PyTorch), the same code as the API.
   PyTorch runs through Ultralytics `predict`, which letterboxes to the smallest stride-32 rectangle; the ONNX model
   has a fixed square input, which explains small box differences.
 - INT8: static quantization (QDQ, per-channel weights, MinMax calibration on 200 training images), `scripts/export_onnx.py --int8`.

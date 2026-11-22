@@ -8,8 +8,8 @@ Tables
     violations  one row per violating rider: time, track, votes, snapshot, plate (filled in later
                 by the background plate reader), review_status for a human reviewer
 
-    python scripts/violation_log.py                    # list runs
-    python scripts/violation_log.py --run 3            # list the violations of run 3
+    python -m ridesafe.violation_log                    # list runs
+    python -m ridesafe.violation_log --run 3            # list the violations of run 3
 """
 
 import argparse

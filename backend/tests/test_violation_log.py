@@ -3,7 +3,7 @@ import threading
 
 import pytest
 
-from violation_log import ViolationLog
+from ridesafe.violation_log import ViolationLog
 
 
 def test_run_and_violation_round_trip(tmp_path):
