@@ -1,0 +1,47 @@
+# Ground truth for scripts/eval_video.py. See annotation.method and annotation.rules.
+video: junction_high_angle.mp4
+frames: 413
+fps: 30.0
+resolution:
+- 1920
+- 1080
+source: https://www.pexels.com/video/35262212/ (Pexels license, by md Jahangir alam)
+download: python scripts/download_eval_videos.py
+annotation:
+  method: 'model-assisted draft plus a low-confidence tracking pass; every keyframe checked by eye on 1080p crops. This is
+    a wide, high camera view: dozens of riders are visible, but almost all heads are under 24 px (the model detects none of
+    them even at confidence 0.02), so by the evaluation rule only the 3 riders whose heads reach 24 px are scored. The clip
+    mainly tests false alarms in a dense scene.'
+  annotated_by: model-assisted draft (scripts/video_gt_draft.py), corrected by hand
+  reviewed_by: Md Faiz Alam (project owner), 2026-11-22
+  rules: rider = person on a two-wheeler (driver or pillion); helmet true/false/'unclear'; caps, scarves and headscarves are
+    not helmets; keyframes = head boxes [x1, y1, x2, y2] in pixels, keyed by 1-based frame number
+riders:
+- id: H1
+  helmet: true
+  plate: null
+  description: scooter rider, light helmet, pink shirt
+  keyframes:
+    141: [1208, 936, 1238, 979]
+    143: [1206, 936, 1239, 983]
+    145: [1210, 938, 1242, 983]
+    157: [1220, 954, 1256, 1004]
+    160: [1223, 964, 1263, 1018]
+    168: [1230, 973, 1278, 1042]
+- id: H2
+  helmet: true
+  plate: null
+  description: brown jacket, black helmet, next to H1 (head drawn by hand)
+  keyframes:
+    160: [1320, 955, 1352, 988]
+- id: H3
+  helmet: true
+  plate: null
+  description: older man with a white beard, black helmet
+  keyframes:
+    325: [1725, 984, 1763, 1036]
+    326: [1725, 984, 1764, 1038]
+    328: [1725, 985, 1766, 1040]
+    339: [1723, 975, 1775, 1051]
+    343: [1735, 985, 1782, 1054]
+    348: [1745, 985, 1787, 1047]

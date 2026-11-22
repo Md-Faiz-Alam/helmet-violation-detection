@@ -17,11 +17,12 @@ GenAI is covered by separate projects (RAG, VeiSight), so this one focuses on de
 |---|---|---|
 | Original test set (63 images), mAP50 / Without Helmet AP50 | **0.937** / 0.889 | 0.917 / 0.881 |
 | Headwear test set (635 images), mAP50 / no-helmet recall | **0.810** / 0.763 | 0.320 / 0.285 |
-| Video, per rider (14 s clip, 12 violators): violation recall at 100% precision | **8/12** | 5/12 |
+| Video, per rider, 4 test clips (54 riders, 40 violators): violation recall / precision | **18/40 (45%) / 18/24 (75%)** | single clip only: 5/12 at 100% |
+| Highway test clip alone: violation recall at 100% precision | **8/12** | 5/12 |
 
 First baseline (YOLOv8s, 30 epochs) for comparison: original test mAP50 0.873, Without Helmet AP50 0.799.
 
-**Main remaining weaknesses:** far-away riders (heads under ~36 px) are not tracked; pedestrians without helmets can be flagged (no "is riding" signal); plate OCR misreads some characters and can take the plate of a closer bike; a rider hidden for a moment can be logged twice.
+**Main remaining weaknesses:** crowded scenes (Pune junction recall 9/26); pedestrians standing among riders are logged as violators (all 6 false violations on the test clips are non-riders); headscarves, face scarves and woolly caps read as helmets; far-away riders (heads under ~36 px) are not tracked; plate OCR misreads some characters and can take the plate of a closer bike; a rider hidden for a moment can be logged twice.
 
 **Dataset caveats:** the 3,546 training images are Roboflow augmentations of far fewer originals, and the valid/test sets are small (126/63 images), so metrics are noisy.
 
@@ -75,7 +76,9 @@ Optional follow-ups:
   - Trade-offs found: more no-helmet "false alarms" on our test set (9 → 20), mostly unlabelled people in caps/bandanas plus a few pedestrians; far-away riders (27-36 px heads) no longer tracked in the video; R4/R5 logged twice after an occlusion
   - [ ] Next model step: far riders (higher input size or tiled inference; retune `configs/bytetrack.yaml` thresholds for the new model) and a "who is riding" signal for pedestrians
   - Turbans are labelled "without helmet" (visually true); whether a Sikh turban is a violation is a deployment policy, not a model decision
-- [ ] Add 2-3 more labelled clips (night, rear view, crowded junction, pedestrians) so the video numbers are not from one 14 s clip
+- [x] Video benchmark expanded to 8 Pexels clips (`eval/video_gt/videos.yaml`, `scripts/download_eval_videos.py`): 4 test clips (highway, crowded Pune junction, high-angle junction, night/fog) labelled and reviewed by the project owner (54 riders, 40 violators): violation recall 18/40, precision 18/24, 0 false violations on helmeted riders, 6 on non-riders
+- [ ] Label the 4 validation clips (Bangalore junction, two rear-view city roads, railway crossing at dusk) before tuning any video setting
+- [ ] "Is riding" signal: all false violations on the test clips are pedestrians or non-riders; measure a temporal head-on-vehicle check on the validation clips
 - [x] Number-plate reading for violators (`scripts/plate_reader.py` + `scripts/plates.py`, unit-tested): 5 closest frames → rider's vehicle (COCO + association) → RapidOCR (PP-OCRv3, onnxruntime) → Indian-format validation with positional look-alike fixes → vote, reported only if ≥2 frames agree
   - Result on the highway clip: 720p 0 correct / 1 wrong / 4 unread; 1080p 1 correct / 1 wrong / 3 unread. The wrong one (`MP04ZD7116` → `MP02ZD7116`) happens even at 286 px and sharp, so the general OCR model is a limit, not only image quality
   - Split helmet/no-helmet votes (≥40% no-helmet) are now **Uncertain** instead of "With Helmet" (found on the 1080p run: a white-skullcap rider at 17 vs 16 votes)
@@ -142,7 +145,7 @@ git push to main
 
 ## Resume line (fill in real numbers as you go)
 
-> Built a helmet-violation detection system (YOLO + ByteTrack + plate OCR). On a held-out image test set I raised no-helmet recall from 74% to 87% while cutting false alarms 3× (model selection across 7 YOLOv8/YOLO11/YOLO26 experiments, class rebalancing, validation-tuned thresholds). Built a per-rider video benchmark with hand-labelled ground truth, which showed 100% violation precision but 42% recall and traced most misses to non-helmet headwear; curated a second public dataset (leak-checked against my test data, hard examples mined with the model) and raised video recall to 67% at 100% precision, and mAP50 on a held-out headwear test set from 0.32 to 0.81. Shipped it as a product: FastAPI + ONNX Runtime backend (X× faster CPU inference, torch-free Docker image), React review console for human-in-the-loop verification, deployed on Azure with automatic CI/CD on every push.
+> Built a helmet-violation detection system (YOLO + ByteTrack + plate OCR). On a held-out image test set I raised no-helmet recall from 74% to 87% while cutting false alarms 3× (model selection across 7 YOLOv8/YOLO11/YOLO26 experiments, class rebalancing, validation-tuned thresholds). Built a per-rider video benchmark with hand-labelled ground truth (54 riders across 4 scenes) and traced the misses to non-helmet headwear, crowds and pedestrians; curated a second public dataset (leak-checked against my test data, hard examples mined with the model), which raised mAP50 on a held-out headwear test set from 0.32 to 0.81; on video the system reaches 75% violation precision with zero false flags on helmeted riders. Shipped it as a product: FastAPI + ONNX Runtime backend (X× faster CPU inference, torch-free Docker image), React review console for human-in-the-loop verification, deployed on Azure with automatic CI/CD on every push.
 
-_Only claim what is measured: video recall is from one 14 s clip (12 violators), so say so if asked._
+_Only claim what is measured: the video numbers come from 4 short clips (40 violators); recall ranges from 35% (crowded junction) to 67% (clean highway)._
     

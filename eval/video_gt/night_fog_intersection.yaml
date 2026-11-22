@@ -1,0 +1,106 @@
+# Ground truth for scripts/eval_video.py. See annotation.method and annotation.rules.
+video: night_fog_intersection.mp4
+frames: 294
+fps: 30.0
+resolution:
+- 1080
+- 1920
+source: https://www.pexels.com/video/35315315/ (Pexels license, by md Jahangir alam)
+download: python scripts/download_eval_videos.py
+annotation:
+  method: model-assisted draft (scripts/video_gt_draft.py); tracks split where the box jumped between people; every keyframe
+    checked by eye on zoomed crops; full frames checked for untracked riders (none found). Two detections on traffic lights
+    are not riders.
+  annotated_by: model-assisted draft (scripts/video_gt_draft.py), corrected by hand
+  reviewed_by: Md Faiz Alam (project owner), 2026-11-22
+  rules: rider = person on a two-wheeler (driver or pillion); helmet true/false/'unclear'; caps, scarves and headscarves are
+    not helmets; keyframes = head boxes [x1, y1, x2, y2] in pixels, keyed by 1-based frame number
+riders:
+- id: N1
+  helmet: true
+  plate: null
+  description: centre motorbike, driver, helmet with a pattern
+  keyframes:
+    1: [650, 943, 683, 984]
+    16: [647, 935, 686, 985]
+    34: [645, 935, 680, 979]
+    49: [627, 928, 668, 979]
+    64: [623, 922, 661, 971]
+    79: [614, 922, 651, 965]
+    94: [606, 919, 645, 966]
+    109: [601, 919, 637, 964]
+    124: [590, 916, 627, 960]
+    139: [579, 906, 623, 962]
+    154: [578, 904, 616, 956]
+    169: [575, 903, 613, 957]
+    184: [575, 902, 610, 950]
+    199: [572, 906, 607, 958]
+    214: [568, 904, 605, 957]
+    229: [561, 903, 595, 952]
+    244: [555, 900, 589, 946]
+    259: [549, 901, 582, 943]
+    274: [540, 901, 577, 947]
+    289: [539, 901, 576, 950]
+    294: [540, 901, 575, 948]
+- id: N2
+  helmet: false
+  plate: null
+  description: centre motorbike, pillion, red woolly cap (not a helmet)
+  keyframes:
+    1: [598, 947, 644, 991]
+    16: [586, 942, 633, 988]
+    31: [582, 943, 628, 988]
+    47: [576, 938, 621, 986]
+    62: [575, 932, 613, 976]
+- id: N3
+  helmet: false
+  plate: null
+  description: grey jacket on a scooter, left; dark hair, no helmet (night, seen from behind)
+  keyframes:
+    1: [151, 933, 189, 986]
+    16: [147, 926, 186, 982]
+    31: [145, 925, 181, 979]
+    46: [149, 921, 181, 969]
+    55: [148, 921, 180, 970]
+    87: [127, 914, 158, 964]
+    102: [126, 916, 156, 964]
+    108: [124, 918, 154, 966]
+    131: [101, 913, 135, 963]
+    143: [98, 912, 131, 960]
+- id: N4
+  helmet: true
+  plate: null
+  description: right motorbike, driver, helmet with a pattern
+  keyframes:
+    1: [873, 911, 913, 979]
+    16: [870, 912, 909, 975]
+    32: [869, 905, 910, 968]
+    33: [871, 906, 911, 966]
+    51: [866, 906, 902, 966]
+    66: [858, 903, 891, 959]
+    81: [845, 902, 880, 959]
+    96: [842, 898, 884, 958]
+    111: [839, 888, 885, 952]
+    126: [833, 882, 877, 950]
+    141: [835, 877, 877, 945]
+    156: [841, 872, 878, 927]
+    171: [837, 871, 877, 929]
+    186: [827, 872, 865, 925]
+    193: [822, 876, 865, 937]
+    212: [817, 877, 859, 933]
+    227: [812, 874, 853, 936]
+    246: [801, 872, 837, 923]
+    249: [792, 873, 829, 928]
+- id: N5
+  helmet: true
+  plate: null
+  description: right motorbike, pillion with a backpack, black helmet
+  keyframes:
+    58: [898, 905, 935, 959]
+    73: [895, 900, 930, 948]
+    88: [886, 898, 921, 946]
+    94: [884, 895, 922, 948]
+    260: [819, 873, 855, 925]
+    275: [800, 878, 839, 927]
+    290: [794, 879, 838, 932]
+    294: [792, 878, 839, 936]

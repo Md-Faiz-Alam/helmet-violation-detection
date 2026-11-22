@@ -198,25 +198,27 @@ How a violation is decided ([scripts/tracking.py](scripts/tracking.py)):
 - The decision is made **when the rider leaves** (track lost for 30 frames, or the video ends), so early frames or an ID switch between two overlapping heads can't lock in a wrong verdict. Each violation is logged once.
 - On screen: green = helmet, red = violation, orange = "no helmet?" (more no-helmet votes, not enough to decide).
 
-**Measured on real footage** ([Pexels clip](https://www.pexels.com/video/34395449/) by Aamir Somewhere, 14 s, riders on an Indian highway facing the camera). Every rider was labelled in [eval/video_gt/](eval/video_gt/indian_highway_riders.yaml) (helmet yes/no, readable plate, head boxes; drafted with model help, then reviewed by a person, who added 2 missed riders), and [scripts/eval_video.py](scripts/eval_video.py) scores each rider, not each frame:
+**Measured on real footage.** The video benchmark has 4 **test** clips (reported only, never used for tuning) and 4 **validation** clips (for tuning video settings), all from Pexels ([manifest](eval/video_gt/videos.yaml); `python scripts/download_eval_videos.py` fetches them). Every rider in the test clips was labelled in [eval/video_gt/](eval/video_gt/) (helmet yes/no, readable plate, head boxes): drafted with model help, checked by hand on 1080p crops, then reviewed by a person, who corrected entries that were not riders. [scripts/eval_video.py](scripts/eval_video.py) scores each **rider**, not each frame.
 
-| Per rider (16 riders, 12 without a helmet) | Previous model, 720p | **Current, 720p** | **Current, 1080p** |
-|---|---|---|---|
-| **Violation precision** (logged violations that are real) | 5 / 5 (100%) | **8 / 8 (100%)** | **8 / 8 (100%)** |
-| **Violation recall** (violators that were logged) | 5 / 12 (42%) | **8 / 12 (67%)** | **8 / 12 (67%)** |
-| Duplicate logs (same violator logged twice) | 0 | 2 | 2 |
-| Riders found | 12 / 16 | 9 / 16 | 9 / 16 |
+| Test clip | Scene | Riders (no helmet) | Violation recall | Violation precision |
+|---|---|---|---|---|
+| Highway | daytime, riders facing the camera | 16 (12) | 8/12 | 8/8 |
+| Pune junction (20 s) | crowded signal, many pedestrians | 30 (26) | 9/26 | 9/13 |
+| High-angle junction | CCTV-like view, almost all heads under 24 px | 3 (0) | n/a | 0/2 |
+| Night / fog | riders seen from behind | 5 (2) | 1/2 | 1/1 |
+| **All test clips** | | **54 (40)** | **18/40 (45%)** | **18/24 (75%)** |
 
-Reports: [video_eval.md](reports/video_eval.md), [video_eval_1080p.md](reports/video_eval_1080p.md).
+The Pune section was chosen with the COCO detector (the 20 s with the most bicycles/motorcycles), not with the helmet model, so the test does not favour scenes the model already handles. Full report: [reports/video_eval.md](reports/video_eval.md).
 
-**What this shows:** the first video evaluation found that 4 of the previous model's 7 misses wore something on their head (two white skullcaps, a cloth cap, a cloth tied on the head) and were read as "With Helmet". After adding headwear data, **both skullcap riders and the skullcap pillion are caught**, and every logged violation is still real. What remains:
-- **far-away riders** (heads about 27-36 px tall) are no longer tracked at all with the current model, so "riders found" dropped; they need a higher input resolution, tiled inference or retuned tracker thresholds;
-- **2 duplicate logs**: the bearded driver and his pillion are hidden behind a closer rider for a moment and get a second track;
-- one rider's head is cut off by the top of the frame.
+**What this shows:**
+- **No helmeted rider was ever flagged** (0 of 6 false violations); every false violation is on someone who is **not riding**: a pedestrian standing at the Pune crossing (logged twice), people in the crowd, a tempo. The model has no notion of who is riding.
+- **Recall depends heavily on the scene:** 67% on clean, front-facing traffic, 35% at a crowded junction, where many riders are never detected at all and headwear is common.
+- **Headwear is still the main miss** even after the extra training data: headscarves, scarves wrapped over the face, a red woolly cap and a cloth cap are read as helmets. Skullcaps, the original failure, are now caught.
+- **Far riders** (heads under about 36 px) are rarely tracked; in the high-angle clip the model detects none of the dozens of small riders.
 
-(Indian law exempts turban-wearing Sikhs from the helmet rule, so a deployed system needs a policy for turbans rather than a blanket "headwear = violation".)
+With 40 violators the result is still uncertain (95% range for recall roughly 31-60%), but it rests on four different scenes instead of one clip. (Indian law exempts turban-wearing Sikhs from the helmet rule, so a deployed system needs a policy for turbans rather than a blanket "headwear = violation".)
 
-Earlier fixes found on this clip: class-agnostic NMS removed duplicate logs (8 logs for 5 people before), and split votes (≥ 40% no-helmet) are shown as **Uncertain** (orange) for a reviewer instead of "With Helmet". To evaluate your own clip: run `track_video.py`, draft labels with `scripts/video_gt_draft.py`, correct them by hand, then run `eval_video.py` (put videos in `data/videos/`, which git ignores).
+Earlier fixes found on the highway clip: class-agnostic NMS removed duplicate logs (8 logs for 5 people before), and split votes (≥ 40% no-helmet) are shown as **Uncertain** (orange) for a reviewer instead of "With Helmet". To evaluate your own clip: run `track_video.py`, draft labels with `scripts/video_gt_draft.py`, correct them by hand, then run `eval_video.py` (put videos in `data/videos/`, which git ignores).
 
 #### Number plates (best effort)
 For each violator, the 5 frames where they are closest to the camera are kept; a COCO detector finds the vehicle the rider is on ([association.py](scripts/association.py)), RapidOCR reads it, and [plates.py](scripts/plates.py) validates the Indian format (state code, district, series, number), fixes look-alike characters by position (series letters never use I/O, so a 0 there is a D) and votes across frames. A plate is only reported if **at least 2 frames agree**; the output shows how many agreed and the plate's width in pixels. `--no-plates` turns it off.

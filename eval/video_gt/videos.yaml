@@ -1,0 +1,66 @@
+# Video benchmark clips (all from Pexels, Pexels license). The videos are not stored in git:
+#   python scripts/download_eval_videos.py        downloads them into data/videos/ (and cuts sections)
+#
+# split: test = reported only, never used for tuning; val = used to tune video settings
+#        (tracker thresholds, min_frames, far-rider handling).
+# Labels for each clip live next to this file as <name>.yaml once they are made and reviewed.
+# The Pune section was chosen with the COCO detector (most bicycles/motorcycles in a 20 s window),
+# not with the helmet model, so the choice does not favour what the model already gets right.
+
+videos:
+  - name: indian_highway_riders
+    split: test
+    scene: daytime highway, riders facing the camera
+    creator: Aamir Somewhere
+    page: https://www.pexels.com/video/34395449/
+    download: https://videos.pexels.com/video-files/34395449/14571159_1280_720_60fps.mp4
+
+  - name: pune_jm_road_junction
+    split: test
+    scene: junction at a signal, riders with and without helmets, many pedestrians
+    creator: Prashant Darekar
+    page: https://www.pexels.com/video/19532260/
+    download: https://videos.pexels.com/video-files/19532260/19532260-hd_1920_1080_60fps.mp4
+    section_s: [20, 40]
+
+  - name: junction_high_angle
+    split: test
+    scene: crowded junction filmed from above (CCTV-like), small riders
+    creator: md Jahangir alam
+    page: https://www.pexels.com/video/35262212/
+    download: https://videos.pexels.com/video-files/35262212/14938780_1920_1080_30fps.mp4
+
+  - name: night_fog_intersection
+    split: test
+    scene: night and fog, riders from behind (portrait video)
+    creator: md Jahangir alam
+    page: https://www.pexels.com/video/35315315/
+    download: https://videos.pexels.com/video-files/35315315/14961679_1080_1920_30fps.mp4
+
+  - name: bangalore_junction
+    split: val
+    scene: junction, close riders seen from the side, mixed helmet use
+    creator: Yash Kanbargi
+    page: https://www.pexels.com/video/27876781/
+    download: https://videos.pexels.com/video-files/27876781/12252615_1920_1080_30fps.mp4
+
+  - name: city_road_rear_1
+    split: val
+    scene: city road, riders from behind (same creator as the highway test clip)
+    creator: Aamir Somewhere
+    page: https://www.pexels.com/video/34394881/
+    download: https://videos.pexels.com/video-files/34394881/14571054_1920_1080_60fps.mp4
+
+  - name: city_road_rear_2
+    split: val
+    scene: city road, riders from behind (same creator as the highway test clip)
+    creator: Aamir Somewhere
+    page: https://www.pexels.com/video/34394876/
+    download: https://videos.pexels.com/video-files/34394876/14571064_1920_1080_60fps.mp4
+
+  - name: railway_crossing_dusk
+    split: val
+    scene: dusk, riders waiting at a railway crossing, seen from behind (portrait video)
+    creator: Vikesh zen
+    page: https://www.pexels.com/video/30983473/
+    download: https://videos.pexels.com/video-files/30983473/13244471_1080_1920_60fps.mp4

@@ -1,0 +1,280 @@
+# Ground truth for scripts/eval_video.py. See annotation.method and annotation.rules.
+video: pune_jm_road_junction.mp4
+frames: 1200
+fps: 60.0
+resolution:
+- 1920
+- 1080
+source: https://www.pexels.com/video/19532260/ (Pexels license, by Prashant Darekar), section 20-40 s
+download: python scripts/download_eval_videos.py (cuts the section)
+annotation:
+  method: model-assisted draft (scripts/video_gt_draft.py) on the 20-40 s section; tracks split where the box jumped between
+    people; every keyframe checked by eye on 1080p crops; riders the model never boxed were found with a second, low-confidence
+    tracking pass and on full frames every 2 s, and their head boxes drawn by hand. Pedestrians (many stand at the crossing)
+    are not riders and are left out on purpose.; review by the project owner removed 3 entries that were not two-wheeler riders
+    (a standing person, the blue cafe tent, a tempo rider) and 3 keyframes on a standing pedestrian
+  annotated_by: model-assisted draft (scripts/video_gt_draft.py), corrected by hand
+  reviewed_by: Md Faiz Alam (project owner), 2026-11-22
+  rules: rider = person on a two-wheeler (driver or pillion); helmet true/false/'unclear'; caps, scarves and headscarves are
+    not helmets; keyframes = head boxes [x1, y1, x2, y2] in pixels, keyed by 1-based frame number
+riders:
+- id: P1
+  helmet: true
+  plate: null
+  description: woman, pink helmet, scooter
+  keyframes:
+    15: [1871, 604, 1916, 701]
+    45: [1429, 609, 1513, 710]
+    75: [793, 594, 893, 695]
+    105: [0, 600, 103, 703]
+- id: P2
+  helmet: true
+  plate: null
+  description: white helmet, olive jacket
+  keyframes:
+    337: [1570, 561, 1645, 652]
+    371: [1088, 567, 1161, 644]
+    403: [541, 564, 625, 650]
+    433: [0, 566, 58, 655]
+- id: P3
+  helmet: true
+  plate: null
+  description: black helmet, purple scooter
+  keyframes:
+    711: [1821, 573, 1896, 648]
+    713: [1802, 573, 1875, 648]
+    717: [1747, 573, 1833, 661]
+    721: [1697, 570, 1794, 671]
+    729: [1616, 575, 1702, 666]
+    733: [1581, 578, 1654, 656]
+    737: [1534, 579, 1605, 655]
+    743: [1464, 580, 1546, 669]
+- id: P4
+  helmet: true
+  plate: null
+  description: black helmet, light-blue shirt, backpack
+  keyframes:
+    823: [1850, 578, 1909, 667]
+    853: [1365, 588, 1436, 670]
+    885: [738, 586, 826, 681]
+    933: [465, 567, 555, 650]
+    941: [299, 570, 385, 650]
+    949: [120, 572, 210, 653]
+- id: P5
+  helmet: false
+  plate: null
+  description: pillion woman, green jacket
+  keyframes:
+    301: [1230, 583, 1294, 661]
+    305: [1159, 581, 1226, 663]
+    313: [1043, 576, 1105, 652]
+    321: [899, 573, 963, 649]
+    325: [744, 555, 827, 651]
+    327: [793, 573, 860, 654]
+    329: [748, 559, 830, 656]
+    331: [645, 573, 721, 660]
+    335: [643, 574, 718, 660]
+    337: [610, 574, 684, 663]
+    347: [425, 575, 499, 663]
+    359: [199, 568, 274, 656]
+- id: P6
+  helmet: false
+  plate: null
+  description: pillion woman, black-and-white top
+  keyframes:
+    357: [1206, 612, 1280, 700]
+    377: [730, 605, 811, 700]
+    379: [673, 608, 750, 694]
+    381: [644, 606, 725, 695]
+- id: P7
+  helmet: false
+  plate: null
+  description: driver, light-blue shirt (carries P6)
+  keyframes:
+    351: [1214, 615, 1285, 700]
+    371: [742, 601, 817, 691]
+- id: P18
+  helmet: false
+  plate: null
+  description: white shirt, black motorcycle
+  keyframes:
+    143: [790, 560, 857, 649]
+- id: P8
+  helmet: false
+  plate: null
+  description: blue jacket and glasses
+  keyframes:
+    417: [780, 552, 859, 640]
+- id: P9
+  helmet: false
+  plate: null
+  description: pink sweater
+  keyframes:
+    493: [1718, 604, 1805, 712]
+- id: P10
+  helmet: false
+  plate: null
+  description: dark shirt, sunglasses
+  keyframes:
+    547: [1737, 608, 1823, 709]
+- id: P11
+  helmet: false
+  plate: null
+  description: young man, light-blue shirt, scooter
+  keyframes:
+    625: [1851, 614, 1907, 709]
+    645: [1497, 618, 1570, 721]
+    665: [1059, 605, 1139, 707]
+    683: [549, 598, 632, 703]
+    685: [481, 602, 562, 703]
+    687: [406, 582, 503, 703]
+    689: [339, 595, 430, 705]
+- id: P12
+  helmet: false
+  plate: null
+  description: woman, pink headscarf (not a helmet)
+  keyframes:
+    695: [1555, 615, 1673, 736]
+    713: [1132, 616, 1252, 740]
+    731: [600, 608, 728, 739]
+    747: [23, 602, 157, 739]
+- id: P13
+  helmet: false
+  plate: null
+  description: man, blue jacket, scooter
+  keyframes:
+    719: [1260, 609, 1336, 700]
+    737: [918, 594, 996, 688]
+    757: [483, 594, 561, 694]
+    775: [8, 599, 100, 708]
+- id: P14
+  helmet: false
+  plate: null
+  description: woman, green jacket, on the phone
+  keyframes:
+    725: [1842, 597, 1902, 708]
+    733: [1719, 597, 1784, 711]
+    743: [1548, 608, 1621, 724]
+    751: [1380, 584, 1477, 734]
+    761: [1205, 603, 1296, 740]
+    769: [1039, 599, 1130, 729]
+    777: [885, 583, 972, 707]
+    785: [711, 593, 801, 722]
+    789: [618, 594, 714, 731]
+    791: [577, 596, 672, 732]
+    793: [519, 579, 631, 740]
+    797: [440, 595, 527, 717]
+    803: [291, 596, 371, 703]
+    809: [125, 590, 212, 702]
+    813: [4, 586, 109, 721]
+- id: P15
+  helmet: false
+  plate: null
+  description: green T-shirt, dog on the scooter
+  keyframes:
+    1015: [1807, 580, 1869, 650]
+    1055: [1283, 589, 1345, 659]
+    1093: [703, 588, 772, 671]
+    1131: [0, 592, 58, 681]
+- id: P16
+  helmet: false
+  plate: null
+  description: black jacket, carrying cardboard
+  keyframes:
+    1033: [1841, 591, 1911, 697]
+    1037: [1781, 593, 1854, 701]
+    1041: [1717, 604, 1786, 703]
+    1043: [1687, 608, 1758, 708]
+    1047: [1622, 608, 1695, 708]
+    1077: [1161, 613, 1244, 707]
+    1109: [619, 601, 706, 697]
+    1139: [0, 600, 87, 701]
+- id: P17
+  helmet: false
+  plate: null
+  description: blue jacket, cloth cap and face mask (not a helmet)
+  keyframes:
+    1097: [1397, 571, 1482, 650]
+    1111: [1163, 579, 1246, 659]
+    1127: [882, 566, 964, 651]
+    1141: [627, 567, 704, 650]
+    1145: [552, 568, 626, 647]
+    1147: [506, 569, 582, 651]
+    1149: [472, 568, 545, 647]
+    1155: [330, 569, 416, 660]
+    1161: [201, 570, 284, 654]
+    1167: [77, 568, 160, 651]
+    1171: [0, 564, 75, 651]
+- id: P19
+  helmet: false
+  plate: null
+  description: blue scooter driver, head and face wrapped in a scarf
+  keyframes:
+    241: [1690, 568, 1745, 620]
+- id: P20
+  helmet: false
+  plate: null
+  description: blue scooter pillion, teal headscarf (not a helmet)
+  keyframes:
+    241: [1752, 562, 1812, 618]
+- id: P21
+  helmet: false
+  plate: null
+  description: dark-blue shirt on a scooter, behind the white car
+  keyframes:
+    241: [505, 592, 548, 640]
+- id: P22
+  helmet: false
+  plate: null
+  description: white-sweater driver carrying the green-jacket pillion (P5)
+  keyframes:
+    361: [40, 582, 125, 665]
+- id: P23
+  helmet: false
+  plate: null
+  description: young man on a grey scooter, background
+  keyframes:
+    361: [640, 590, 672, 622]
+- id: P24
+  helmet: false
+  plate: null
+  description: grey-shirt man on a grey scooter, foreground
+  keyframes:
+    455: [1710, 574, 1784, 672]
+    481: [1232, 603, 1298, 678]
+- id: P25
+  helmet: false
+  plate: null
+  description: light-blue shirt on a motorbike, far left
+  keyframes:
+    481: [260, 578, 294, 615]
+- id: P26
+  helmet: false
+  plate: null
+  description: woman on a grey scooter, green scarf over the face (not a helmet)
+  keyframes:
+    481: [1628, 578, 1702, 655]
+- id: P27
+  helmet: false
+  plate: null
+  description: red shirt on a motorbike
+  keyframes:
+    961: [1688, 578, 1735, 632]
+- id: P29
+  helmet: false
+  plate: null
+  description: red-bike driver, grey shirt
+  keyframes:
+    1081: [232, 575, 282, 628]
+- id: P30
+  helmet: false
+  plate: null
+  description: red-bike pillion, girl
+  keyframes:
+    1081: [148, 588, 195, 638]
+- id: P31
+  helmet: false
+  plate: null
+  description: pillion on the blue scooter, no helmet (frames 995-1019 of that track were a standing pedestrian, removed)
+  keyframes:
+    1035: [805, 587, 876, 674]
