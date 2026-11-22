@@ -184,7 +184,14 @@ function Detail({
             <Eyebrow>Rider</Eyebrow>
             <div className="mt-1 font-mono text-3xl font-semibold">#{v.track_id}</div>
           </div>
-          <Badge tone={reviewTone[v.review_status]}>{reviewText[v.review_status]}</Badge>
+          <div className="flex flex-col items-end gap-1">
+            <Badge tone={reviewTone[v.review_status]}>{reviewText[v.review_status]}</Badge>
+            {v.reviewed_by && v.reviewed_at && (
+              <span className="text-[11px] text-subtle" title="Audit trail: who last changed the review status">
+                by {v.reviewed_by} · {new Date(v.reviewed_at).toLocaleString()}
+              </span>
+            )}
+          </div>
         </div>
 
         <dl className="grid grid-cols-2 gap-x-6 gap-y-4 text-sm">
@@ -243,7 +250,7 @@ function Detail({
           ) : (
             <div className="flex items-center gap-2 text-sm text-muted">
               <Lock className="size-4" />
-              Read-only: only the uploader of this video can review it (the sample is read-only).
+              Read-only: only the uploader of this video or the author can review it (the sample is read-only).
             </div>
           )}
           {error != null && <ErrorNotice error={error} />}

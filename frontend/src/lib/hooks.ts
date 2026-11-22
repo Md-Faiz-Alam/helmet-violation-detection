@@ -10,6 +10,10 @@ export function useModelInfo() {
   return useQuery({ queryKey: ['model'], queryFn: api.model, staleTime: Infinity, retry: 1 })
 }
 
+export function useMe() {
+  return useQuery({ queryKey: ['me'], queryFn: () => api.me(), staleTime: Infinity, retry: false })
+}
+
 export function useJobs() {
   return useQuery({ queryKey: ['jobs'], queryFn: api.jobs, refetchInterval: 15_000 })
 }

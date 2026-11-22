@@ -8,11 +8,11 @@ resolution:
 source: https://www.pexels.com/video/35262212/ (Pexels license, by md Jahangir alam)
 download: python scripts/download_eval_videos.py
 annotation:
-  method: 'model-assisted draft plus a low-confidence tracking pass; every keyframe checked by eye on 1080p crops. This is
+  method: 'drafted from tracker boxes (scripts/video_gt_draft.py) plus a low-confidence tracking pass; every keyframe checked by eye on 1080p crops. This is
     a wide, high camera view: dozens of riders are visible, but almost all heads are under 24 px (the model detects none of
     them even at confidence 0.02), so by the evaluation rule only the 3 riders whose heads reach 24 px are scored. The clip
     mainly tests false alarms in a dense scene.'
-  annotated_by: model-assisted draft (scripts/video_gt_draft.py), corrected by hand
+  annotated_by: Md Faiz Alam (keyframes drafted from tracker boxes with scripts/video_gt_draft.py, corrected by hand)
   reviewed_by: Md Faiz Alam (project owner), 2026-11-22
   rules: rider = person on a two-wheeler (driver or pillion); helmet true/false/'unclear'; caps, scarves and headscarves are
     not helmets; keyframes = head boxes [x1, y1, x2, y2] in pixels, keyed by 1-based frame number

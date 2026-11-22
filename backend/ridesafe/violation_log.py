@@ -51,7 +51,9 @@ CREATE TABLE IF NOT EXISTS violations (
     plate_frames_tried  INTEGER,
     plate_width_px      INTEGER,
     plate_image         TEXT,
-    review_status       TEXT NOT NULL DEFAULT 'pending'  -- pending / confirmed / rejected
+    review_status       TEXT NOT NULL DEFAULT 'pending', -- pending / confirmed / rejected
+    reviewed_at         TEXT,                            -- audit: when the status last changed
+    reviewed_by         TEXT                             -- audit: who changed it (author / uploader / cli)
 );
 CREATE INDEX IF NOT EXISTS idx_violations_run ON violations(run_id);
 CREATE INDEX IF NOT EXISTS idx_violations_logged ON violations(logged_at);
@@ -75,6 +77,10 @@ class ViolationLog:
             self._db.execute("PRAGMA journal_mode=WAL")
             self._db.execute("PRAGMA foreign_keys=ON")
             self._db.executescript(SCHEMA)
+            columns = {r[1] for r in self._db.execute("PRAGMA table_info(violations)")}
+            for col in ("reviewed_at", "reviewed_by"):  # logs created before the audit columns existed
+                if col not in columns:
+                    self._db.execute(f"ALTER TABLE violations ADD COLUMN {col} TEXT")
             self._db.commit()
 
     def _write(self, sql, params=()):
@@ -102,10 +108,12 @@ class ViolationLog:
             "plate_width_px=?, plate_image=? WHERE id=?",
             (plate, conf, frames_read, frames_tried, width_px, plate_image, violation_id))
 
-    def set_review(self, violation_id, status):
+    def set_review(self, violation_id, status, by=None):
+        """Set the review status and record who changed it and when (audit trail)."""
         if status not in ("pending", "confirmed", "rejected"):
             raise ValueError(f"Unknown review status: {status}")
-        self._write("UPDATE violations SET review_status=? WHERE id=?", (status, violation_id))
+        self._write("UPDATE violations SET review_status=?, reviewed_at=?, reviewed_by=? WHERE id=?",
+                    (status, now(), by, violation_id))
 
     def finish_run(self, run_id, frames_processed=None, processing_fps=None, summary=None, status="finished"):
         self._write(

@@ -8,10 +8,10 @@ resolution:
 source: https://www.pexels.com/video/35315315/ (Pexels license, by md Jahangir alam)
 download: python scripts/download_eval_videos.py
 annotation:
-  method: model-assisted draft (scripts/video_gt_draft.py); tracks split where the box jumped between people; every keyframe
+  method: drafted from tracker boxes (scripts/video_gt_draft.py); tracks split where the box jumped between people; every keyframe
     checked by eye on zoomed crops; full frames checked for untracked riders (none found). Two detections on traffic lights
     are not riders.
-  annotated_by: model-assisted draft (scripts/video_gt_draft.py), corrected by hand
+  annotated_by: Md Faiz Alam (keyframes drafted from tracker boxes with scripts/video_gt_draft.py, corrected by hand)
   reviewed_by: Md Faiz Alam (project owner), 2026-11-22
   rules: rider = person on a two-wheeler (driver or pillion); helmet true/false/'unclear'; caps, scarves and headscarves are
     not helmets; keyframes = head boxes [x1, y1, x2, y2] in pixels, keyed by 1-based frame number

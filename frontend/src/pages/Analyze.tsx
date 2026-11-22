@@ -8,7 +8,7 @@ import { PageHeader } from '@/components/layout/AppShell'
 import { Button } from '@/components/ui/button'
 import { Badge, Card, CardHeader, EmptyState, ErrorNotice, Progress, Stat } from '@/components/ui/primitives'
 import { api, uploadVideo, type Job } from '@/lib/api'
-import { useJobs, useModelInfo } from '@/lib/hooks'
+import { useJobs, useMe, useModelInfo } from '@/lib/hooks'
 import { cn, everyNth, formatBytes, formatTime, relativeTime } from '@/lib/utils'
 
 const IMAGE_ACCEPT = 'image/jpeg,image/png,image/webp,image/bmp'
@@ -148,6 +148,7 @@ function ImageAnalyzer() {
 
 function VideoAnalyzer() {
   const model = useModelInfo()
+  const me = useMe()
   const jobs = useJobs()
   const navigate = useNavigate()
   const qc = useQueryClient()
@@ -198,15 +199,16 @@ function VideoAnalyzer() {
           />
         )}
         {error != null && <ErrorNotice error={error} />}
-        {model.data?.demo && (
+        {me.data?.role !== 'author' && limits && (
           <p className="text-xs leading-relaxed text-subtle">
-            Public demo: your uploads and their results are visible only in this browser and are deleted after{' '}
-            {Math.round((limits?.upload_ttl_s ?? 3600) / 60)} minutes. Number plates are partly masked.
+            Your uploads and their results are visible only in this browser
+            {limits.upload_ttl_s > 0 ? ` and are deleted after ${Math.round(limits.upload_ttl_s / 60)} minutes` : ''}.
+            {model.data?.demo ? ' Number plates are partly masked.' : ''}
           </p>
         )}
       </div>
       <Card className="overflow-hidden">
-        <CardHeader title="Videos" description={model.data?.demo ? 'The sample and your uploads' : 'All analysed videos'} />
+        <CardHeader title="Videos" description={me.data?.role === 'author' ? "Everyone's uploads (author view)" : 'The sample and your uploads'} />
         {jobs.isPending ? (
           <div className="p-5 text-sm text-muted">Loading…</div>
         ) : jobs.isError ? (

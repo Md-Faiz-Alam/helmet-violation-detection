@@ -8,12 +8,12 @@ resolution:
 source: https://www.pexels.com/video/19532260/ (Pexels license, by Prashant Darekar), section 20-40 s
 download: python scripts/download_eval_videos.py (cuts the section)
 annotation:
-  method: model-assisted draft (scripts/video_gt_draft.py) on the 20-40 s section; tracks split where the box jumped between
+  method: drafted from tracker boxes (scripts/video_gt_draft.py) on the 20-40 s section; tracks split where the box jumped between
     people; every keyframe checked by eye on 1080p crops; riders the model never boxed were found with a second, low-confidence
     tracking pass and on full frames every 2 s, and their head boxes drawn by hand. Pedestrians (many stand at the crossing)
     are not riders and are left out on purpose.; review by the project owner removed 3 entries that were not two-wheeler riders
     (a standing person, the blue cafe tent, a tempo rider) and 3 keyframes on a standing pedestrian
-  annotated_by: model-assisted draft (scripts/video_gt_draft.py), corrected by hand
+  annotated_by: Md Faiz Alam (keyframes drafted from tracker boxes with scripts/video_gt_draft.py, corrected by hand)
   reviewed_by: Md Faiz Alam (project owner), 2026-11-22
   rules: rider = person on a two-wheeler (driver or pillion); helmet true/false/'unclear'; caps, scarves and headscarves are
     not helmets; keyframes = head boxes [x1, y1, x2, y2] in pixels, keyed by 1-based frame number

@@ -4,7 +4,9 @@
 #                                       other ports: RIDESAFE_WEB_PORT, RIDESAFE_PORT
 #   docker compose down              (add -v to also delete uploads, results and the violation log)
 #
-# Settings are RIDESAFE_* environment variables (backend/ridesafe/settings.py).
+# Settings are RIDESAFE_* environment variables (backend/ridesafe/settings.py). Your author key goes in a
+# file named .env next to this one (git ignores it):  RIDESAFE_ADMIN_TOKEN=<32+ random characters>
+# Ports are bound to 127.0.0.1: only this computer can open the app, not others on your network.
 
 services:
   api:
@@ -13,9 +15,11 @@ services:
       dockerfile: backend/Dockerfile
     image: ridesafe-api:local
     ports:
-      - "${RIDESAFE_PORT:-8000}:8000"   # host port, e.g. RIDESAFE_PORT=8080 docker compose up
+      - "127.0.0.1:${RIDESAFE_PORT:-8000}:8000"   # host port, e.g. RIDESAFE_PORT=8001 docker compose up
     environment:
-      RIDESAFE_DEMO: "false"          # "true": masked plates, visitors review only their own uploads
+      RIDESAFE_ADMIN_TOKEN: "${RIDESAFE_ADMIN_TOKEN:-}"   # from .env; empty = no author sign-in
+      RIDESAFE_DEMO: "false"          # local: full plates for your own uploads ("true" masks them for visitors)
+      RIDESAFE_TRUSTED_PROXY: "true"  # requests arrive through the web container's nginx
       RIDESAFE_UPLOAD_TTL_S: "0"      # keep local uploads (the public demo deletes them after 3600 s)
       RIDESAFE_MAX_VIDEO_MB: "200"
       RIDESAFE_MAX_VIDEO_SECONDS: "300"
@@ -27,7 +31,7 @@ services:
     build: frontend
     image: ridesafe-web:local
     ports:
-      - "${RIDESAFE_WEB_PORT:-8080}:80"
+      - "127.0.0.1:${RIDESAFE_WEB_PORT:-8080}:80"
     depends_on:
       - api
     restart: unless-stopped

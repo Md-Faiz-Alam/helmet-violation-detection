@@ -71,8 +71,10 @@ class JobManager:
         if settings.sample_dir:
             self._load_sample(Path(settings.sample_dir))
         self._stop = threading.Event()
+        self.worker = None
         if start_threads:  # off for make_sample(), which runs one job in the foreground
-            threading.Thread(target=self._work, name="video-jobs", daemon=True).start()
+            self.worker = threading.Thread(target=self._work, name="video-jobs", daemon=True)
+            self.worker.start()
             threading.Thread(target=self._expire_loop, name="job-expiry", daemon=True).start()
 
     # ------------------------------------------------------------------ state
@@ -154,20 +156,23 @@ class JobManager:
     def get(self, job_id):
         return self.jobs.get(job_id)
 
-    def visible(self, token=None):
-        """Jobs a caller may list: in demo mode the sample and their own uploads, otherwise all."""
-        h = hash_token(token)
+    def can_see(self, job, token=None, admin=False):
+        """The author sees everything; a visitor sees the sample and their own uploads."""
+        if job is None:
+            return False
+        return admin or bool(job.get("readonly")) or (bool(token) and job.get("owner") == hash_token(token))
+
+    def visible(self, token=None, admin=False):
+        """Jobs a caller may list, newest first."""
         with self.lock:
-            jobs = list(self.jobs.values())
-        if self.s.demo:
-            jobs = [j for j in jobs if j.get("readonly") or (h and j.get("owner") == h)]
+            jobs = [j for j in self.jobs.values() if self.can_see(j, token, admin)]
         return sorted(jobs, key=lambda j: j.get("created_at", ""), reverse=True)
 
-    def can_edit(self, job, token):
-        """May this caller review or delete the job? Never the sample; in demo mode only the uploader."""
+    def can_edit(self, job, token=None, admin=False):
+        """May this caller review or delete the job? Never the sample; the author always; else only the uploader."""
         if job is None or job.get("readonly"):
             return False
-        return not self.s.demo or (bool(token) and job.get("owner") == hash_token(token))
+        return admin or (bool(token) and job.get("owner") == hash_token(token))
 
     def job_for_run(self, run_id):
         with self.lock:
@@ -192,9 +197,12 @@ class JobManager:
                 out[j["status"]] = out.get(j["status"], 0) + 1
         return out
 
-    def close(self):
+    def close(self, timeout=30):
+        """Stop the worker (a running job stops at its next frame) before the log is closed."""
         self._stop.set()
         self.queue.put(None)
+        if self.worker is not None:
+            self.worker.join(timeout)
 
     # ------------------------------------------------------------------ worker
 
@@ -209,9 +217,13 @@ class JobManager:
             try:
                 self.run(job)
             except Exception as e:  # report it on the job, keep the worker alive
+                stopped = self._stop.is_set()
                 if job.get("run_id"):
-                    self.log.finish_run(job["run_id"], status="failed", summary={"error": str(e)})
-                self._update(job, status="failed", stage="failed", error=f"{type(e).__name__}: {e}")
+                    self.log.finish_run(job["run_id"], status="interrupted" if stopped else "failed",
+                                        summary={"error": str(e)})
+                self._update(job, status="failed", stage="failed",
+                             error="Interrupted by a server restart; upload again." if stopped
+                             else f"{type(e).__name__}: {e}")
 
     def run(self, job):
         """Analyse one job's video (blocking). Used by the worker and by --make-sample."""

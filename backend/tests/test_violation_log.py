@@ -55,3 +55,30 @@ def test_writes_from_two_threads(tmp_path):
     rows = log.violations(run, limit=1000)
     assert len(rows) == 100 and sum(r["plate"] is not None for r in rows) == 50
     log.close()
+
+
+def test_review_changes_are_audited_and_old_logs_are_upgraded(tmp_path):
+    db = tmp_path / "old.db"
+    con = sqlite3.connect(db)  # a log written before the audit columns existed
+    con.executescript(
+        "CREATE TABLE runs (id INTEGER PRIMARY KEY, started_at TEXT NOT NULL, finished_at TEXT, status TEXT NOT NULL "
+        "DEFAULT 'running', source TEXT NOT NULL, weights TEXT, out_dir TEXT, settings TEXT, frames_processed INTEGER, "
+        "processing_fps REAL, summary TEXT);"
+        "CREATE TABLE violations (id INTEGER PRIMARY KEY, run_id INTEGER NOT NULL, track_id INTEGER NOT NULL, "
+        "logged_at TEXT NOT NULL, video_time_s REAL, first_seen_s REAL, last_seen_s REAL, votes_without INTEGER NOT "
+        "NULL, votes_with INTEGER NOT NULL, max_conf REAL, snapshot TEXT, plate TEXT, plate_conf REAL, "
+        "plate_frames_read INTEGER, plate_frames_tried INTEGER, plate_width_px INTEGER, plate_image TEXT, "
+        "review_status TEXT NOT NULL DEFAULT 'pending');"
+        "INSERT INTO runs (started_at, source) VALUES ('2026-01-01', 'old');"
+        "INSERT INTO violations (run_id, track_id, logged_at, votes_without, votes_with) VALUES (1, 7, 'x', 5, 0);")
+    con.commit()
+    con.close()
+
+    log = ViolationLog(db)
+    [v] = log.violations(1)
+    assert v["review_status"] == "pending" and v["reviewed_by"] is None
+    log.set_review(v["id"], "confirmed", by="author")
+    v = log.violation(v["id"])
+    assert v is not None
+    assert v["review_status"] == "confirmed" and v["reviewed_by"] == "author" and v["reviewed_at"]
+    log.close()

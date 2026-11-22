@@ -1,3 +1,4 @@
+import { authorKey, setAuthorKey } from './author'
 import { ownerToken } from './owner'
 
 /** API base URL: VITE_API_URL in production builds, /api (Vite dev proxy) otherwise. */
@@ -26,13 +27,20 @@ export interface ModelInfo {
   runtime: string
   plates_enabled: boolean
   demo: boolean
+  author_enabled: boolean
   limits: {
     max_image_mb: number
     max_video_mb: number
     max_video_seconds: number
     vid_stride: number
     upload_ttl_s: number
+    detect_per_min: number
+    uploads_per_hour: number
   }
+}
+
+export interface Me {
+  role: 'author' | 'visitor'
 }
 
 export interface Detection {
@@ -118,6 +126,8 @@ export interface Violation {
   plate_conf: number | null
   plate_frames: string | null
   review_status: ReviewStatus
+  reviewed_by: 'author' | 'uploader' | null
+  reviewed_at: string | null
   snapshot_url: string | null
   plate_image_url: string | null
   editable: boolean
@@ -144,14 +154,26 @@ async function errorMessage(res: Response) {
   return `${res.status} ${res.statusText}`
 }
 
-async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
+/** Identity headers for every request: the browser's owner token, plus the author's key when signed in. */
+function identityHeaders(key = authorKey()): Record<string, string> {
+  const h: Record<string, string> = { 'X-Owner-Token': ownerToken() }
+  if (key) h.Authorization = `Bearer ${key}`
+  return h
+}
+
+async function request<T>(path: string, init: RequestInit = {}, key?: string | null): Promise<T> {
   const headers = new Headers(init.headers)
-  headers.set('X-Owner-Token', ownerToken())
+  for (const [k, v] of Object.entries(identityHeaders(key === undefined ? authorKey() : key))) headers.set(k, v)
   let res: Response
   try {
     res = await fetch(apiUrl(path), { ...init, headers })
   } catch {
     throw new ApiError(0, 'The API is not reachable. Is it running?')
+  }
+  if (res.status === 401 && key === undefined && authorKey()) {
+    setAuthorKey(null) // the saved author key is no longer valid (changed on the server): continue as a visitor
+    window.dispatchEvent(new Event('ridesafe-author-changed'))
+    return request<T>(path, init)
   }
   if (!res.ok) throw new ApiError(res.status, await errorMessage(res))
   return (res.status === 204 ? undefined : await res.json()) as T
@@ -159,6 +181,8 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
 
 export const api = {
   health: () => request<Health>('/health'),
+  /** Who the API thinks we are; pass a key to check it before saving it. */
+  me: (key?: string | null) => request<Me>('/me', {}, key),
   model: () => request<ModelInfo>('/model'),
   jobs: () => request<Job[]>('/jobs'),
   job: (id: string) => request<Job>(`/jobs/${id}`),
@@ -186,7 +210,7 @@ export function uploadVideo(file: File, onProgress: (fraction: number) => void, 
   return new Promise<{ job: Job }>((resolve, reject) => {
     const xhr = new XMLHttpRequest()
     xhr.open('POST', apiUrl('/jobs/video'))
-    xhr.setRequestHeader('X-Owner-Token', ownerToken())
+    for (const [k, v] of Object.entries(identityHeaders())) xhr.setRequestHeader(k, v)
     xhr.upload.onprogress = (e) => e.lengthComputable && onProgress(e.loaded / e.total)
     xhr.onload = () => {
       let body: { detail?: string; job?: Job } = {}

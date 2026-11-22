@@ -1,4 +1,4 @@
-"""Draft a video ground-truth file from a tracker run, for a human to correct (model-assisted labelling).
+"""Draft a video ground-truth file from a tracker run, for a human to correct (tracker-drafted labelling).
 
     python scripts/track_video.py --source data/videos/clip.mp4 --vid-stride 2 --no-plates
     python scripts/video_gt_draft.py --video data/videos/clip.mp4 --run results/video/clip_<timestamp>
@@ -114,7 +114,7 @@ def main(args):
         "video": video.name,
         "frames": n_frames, "fps": round(fps, 3), "resolution": [W, H],
         "source": args.source_url, "download": args.download_url,
-        "annotation": {"method": "model-assisted draft from scripts/video_gt_draft.py, corrected by hand",
+        "annotation": {"method": "drafted from tracker boxes by scripts/video_gt_draft.py, corrected by hand",
                        "annotated_by": None, "reviewed_by": None,
                        "rules": "rider = person on a moving two-wheeler; helmet: true/false/unclear; "
                                 "plate only if a person can read it; keyframes are head boxes in pixels"},

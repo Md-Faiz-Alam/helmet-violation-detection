@@ -5,41 +5,52 @@
 Endpoints
     GET    /health                       liveness + whether the models are loaded
     GET    /model                        classes, thresholds, input size, limits, demo mode
-    GET    /metrics                      request counts and latencies, jobs, frames processed
+    GET    /me                           who the caller is: "author" or "visitor"
+    GET    /metrics                      request counts and latencies, jobs, frames processed (author)
     POST   /detect                       image -> helmet / no-helmet boxes (JSON)
     POST   /jobs/video                   upload a video -> async job (202) + owner token
     GET    /jobs                         jobs the caller may see
     GET    /jobs/{id}                    status, progress, summary
     GET    /jobs/{id}/tracks             per-frame tracked boxes + final decision per track (finished jobs)
     GET    /jobs/{id}/video              the uploaded video (supports HTTP range requests for seeking)
-    DELETE /jobs/{id}                    delete a job and its results (owner)
-    GET    /violations                   logged violations (filter by job and review status)
+    DELETE /jobs/{id}                    delete a job and its results (uploader or author)
+    GET    /violations                   logged violations the caller may see (filter by job and review status)
     GET    /violations/{id}              one violation
-    PATCH  /violations/{id}              set review_status: pending / confirmed / rejected (owner)
-    GET    /violations/{id}/snapshot     the violator's snapshot (JPEG)
-    GET    /violations/{id}/plate        the plate crop (JPEG; not in demo mode)
+    PATCH  /violations/{id}              set review_status: pending / confirmed / rejected (uploader or author)
+    GET    /violations/{id}/snapshot     the violator's snapshot (JPEG; signed link from the violation)
+    GET    /violations/{id}/plate        the plate crop (JPEG; signed link; author only on the public site)
 
-Ownership: send a random X-Owner-Token (16-128 characters) with POST /jobs/video and with later requests;
-without one, POST /jobs/video makes a token and returns it once. A browser keeps one token for all its uploads.
-In demo mode (RIDESAFE_DEMO=true) visitors see and review only their own uploads plus the read-only
-sample, plates are partly masked (MP04 •• 7116) and plate crops are not served. Settings: ridesafe.settings.
+Who may do what
+    Author   the holder of RIDESAFE_ADMIN_TOKEN, sent as "Authorization: Bearer <token>": sees and changes
+             everything, full plates, /metrics, no rate limits.
+    Visitor  everyone else. A browser sends one random X-Owner-Token (16-128 characters) with every request;
+             a visitor sees and changes only the uploads made with their token, plus the read-only sample.
+             On the public site (RIDESAFE_DEMO=true, the default) plates are partly masked (MP04 •• 7116)
+             and plate crops are not served to visitors. Photo checks and uploads are rate-limited per address.
+Every review change is recorded with who made it and when (reviewed_by, reviewed_at). Job IDs are random
+128-bit values: a job's video and tracks are reachable only by someone who was given its ID. Image links
+carry an HMAC signature, so snapshots cannot be fetched by guessing their number.
 """
 
+import hashlib
+import hmac
 import os
+import secrets
 import shutil
 import tempfile
 import time
 from collections import defaultdict, deque
 from contextlib import asynccontextmanager
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Annotated, Literal
 
 import cv2
 import numpy as np
 from fastapi import Depends, FastAPI, File, Header, HTTPException, Query, Request, UploadFile
+from fastapi.concurrency import run_in_threadpool
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.openapi.docs import get_swagger_ui_html
-from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel, Field
 
@@ -54,6 +65,7 @@ from ridesafe.violation_log import ViolationLog
 IMAGE_TYPES = {"image/jpeg", "image/png", "image/webp", "image/bmp"}
 VIDEO_EXTS = {".mp4", ".mov", ".avi", ".mkv", ".webm", ".m4v"}
 CHUNK = 1 << 20
+MIN_ADMIN_TOKEN = 32
 
 
 # ----------------------------------------------------------------------------- setup
@@ -104,16 +116,69 @@ class Metrics:
         return out
 
 
+class RateLimiter:
+    """Sliding-window limit per (action, client address), kept in memory (one API process)."""
+
+    def __init__(self, max_keys=50_000):
+        self.hits = defaultdict(deque)
+        self.max_keys = max_keys
+
+    def check(self, action, client, limit, window_s, now=None):
+        """Record a hit; return 0 if allowed, else the seconds until the next hit is allowed."""
+        if limit <= 0:
+            return 0
+        now = time.monotonic() if now is None else now
+        q = self.hits[(action, client)]
+        while q and now - q[0] >= window_s:
+            q.popleft()
+        if len(q) >= limit:
+            return int(window_s - (now - q[0])) + 1
+        q.append(now)
+        if len(self.hits) > self.max_keys:  # forget idle clients so memory stays bounded
+            for k in [k for k, v in self.hits.items() if not v or now - v[-1] >= window_s]:
+                del self.hits[k]
+        return 0
+
+
+@dataclass(frozen=True)
+class Caller:
+    token: str | None  # the visitor's X-Owner-Token
+    admin: bool        # the author (valid RIDESAFE_ADMIN_TOKEN)
+    client: str        # client address, for rate limits
+
+    @property
+    def role(self):
+        return "author" if self.admin else "visitor"
+
+
 def get_manager(request: Request) -> JobManager:
     return request.app.state.jobs
 
 
-def get_owner_token(x_owner_token: Annotated[str | None, Header()] = None) -> str | None:
-    return x_owner_token
+def get_caller(request: Request, x_owner_token: Annotated[str | None, Header()] = None,
+               authorization: Annotated[str | None, Header()] = None) -> Caller:
+    admin_token = request.app.state.settings.admin_token
+    admin = False
+    if authorization:
+        scheme, _, value = authorization.partition(" ")
+        if scheme.lower() != "bearer" or not admin_token or not hmac.compare_digest(value.strip(), admin_token):
+            raise HTTPException(401, "Invalid author key", headers={"WWW-Authenticate": "Bearer"})
+        admin = True
+    return Caller(token=x_owner_token, admin=admin, client=client_address(request))
+
+
+def client_address(request: Request) -> str:
+    """The visitor's address. Behind a trusted proxy it is the LAST X-Forwarded-For entry: the one our own
+    proxy appended. Earlier entries come from the client and could be faked to dodge rate limits."""
+    if request.app.state.settings.trusted_proxy:
+        forwarded = [p.strip() for p in request.headers.get("x-forwarded-for", "").split(",") if p.strip()]
+        if forwarded:
+            return forwarded[-1]
+    return request.client.host if request.client else "unknown"
 
 
 Manager = Annotated[JobManager, Depends(get_manager)]
-Token = Annotated[str | None, Depends(get_owner_token)]  # the X-Owner-Token header
+CallerDep = Annotated[Caller, Depends(get_caller)]
 
 
 # ----------------------------------------------------------------------------- schemas
@@ -178,6 +243,8 @@ class ViolationOut(BaseModel):
     plate_conf: float | None
     plate_frames: str | None
     review_status: Literal["pending", "confirmed", "rejected"]
+    reviewed_by: str | None = Field(None, description="Who last changed the review status: author / uploader")
+    reviewed_at: str | None = None
     snapshot_url: str | None
     plate_image_url: str | None
     editable: bool
@@ -187,10 +254,23 @@ class ReviewIn(BaseModel):
     review_status: Literal["pending", "confirmed", "rejected"]
 
 
+class Me(BaseModel):
+    role: Literal["author", "visitor"]
+
+
 # ----------------------------------------------------------------------------- app
 
 def create_app(settings=None):
     settings = settings or Settings()
+    if settings.admin_token and len(settings.admin_token) < MIN_ADMIN_TOKEN:
+        raise ValueError(f"RIDESAFE_ADMIN_TOKEN must be at least {MIN_ADMIN_TOKEN} characters")
+    url_key = (settings.url_secret or secrets.token_hex(32)).encode()
+
+    def sign(path):
+        return hmac.new(url_key, path.encode(), hashlib.sha256).hexdigest()[:32]
+
+    def signed(path):
+        return f"{path}?sig={sign(path)}"
 
     @asynccontextmanager
     async def lifespan(app):
@@ -209,11 +289,12 @@ def create_app(settings=None):
     app = FastAPI(title="RideSafe AI API", version=__version__, lifespan=lifespan, docs_url=None, redoc_url=None,
                   servers=[{"url": ".", "description": "this server"}],
                   description="Helmet violation detection for two-wheeler riders: image detection, video jobs "
-                              "with per-rider decisions, and a review queue. Source code (AGPL-3.0): "
-                              "https://github.com/Md-Faiz-Alam/helmet-violation-detection")
-    app.state.settings, app.state.metrics = settings, Metrics()
+                              "with per-rider decisions, and a review queue. Visitors see and change only their "
+                              "own uploads; the author (Authorization: Bearer key) manages everything. Source "
+                              "code (AGPL-3.0): https://github.com/Md-Faiz-Alam/helmet-violation-detection")
+    app.state.settings, app.state.metrics, app.state.limiter = settings, Metrics(), RateLimiter()
     app.add_middleware(CORSMiddleware, allow_origins=list(settings.cors_origins), allow_methods=["*"],
-                       allow_headers=["*"], expose_headers=["Content-Range", "Accept-Ranges"])
+                       allow_headers=["*"], expose_headers=["Content-Range", "Accept-Ranges", "Retry-After"])
 
     upload_limits = {"/detect": settings.max_image_mb, "/jobs/video": settings.max_video_mb}
 
@@ -226,18 +307,30 @@ def create_app(settings=None):
         t0 = time.perf_counter()
         response = await call_next(request)
         route = request.scope.get("route")
-        name = f"{request.method} {route.path}" if route is not None else "unmatched"
+        name = f"{request.method} {getattr(route, 'path', '')}" if route is not None else "unmatched"
         app.state.metrics.record(name, response.status_code, (time.perf_counter() - t0) * 1000)
+        response.headers.setdefault("X-Content-Type-Options", "nosniff")
+        response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
         return response
 
+    def rate_limit(caller, action, limit, window_s):
+        if caller.admin:
+            return
+        wait = app.state.limiter.check(action, caller.client, limit, window_s)
+        if wait:
+            raise HTTPException(429, f"Too many requests; try again in {wait} s", headers={"Retry-After": str(wait)})
 
-    def job_out(job, token, manager):
+    def require_author(caller):
+        if not caller.admin:
+            raise HTTPException(403, "Only the author can do this")
+
+    def job_out(job, caller, manager):
         expires = None
         if not job.get("readonly") and settings.upload_ttl_s > 0:
             expires = max(0, int(job["created_ts"] + settings.upload_ttl_s - time.time()))
         return JobOut(**{k: job.get(k) for k in JobOut.model_fields if k in job},
                       queue_position=manager.queue_position(job) if job["status"] == "queued" else 0,
-                      editable=manager.can_edit(job, token), expires_in_s=expires)
+                      editable=manager.can_edit(job, caller.token, caller.admin), expires_in_s=expires)
 
     def get_job(job_id, manager):
         job = manager.get(job_id)
@@ -245,24 +338,35 @@ def create_app(settings=None):
             raise HTTPException(404, "Job not found (it may have expired)")
         return job
 
-    def violation_out(v, manager, token):
+    def plates_hidden(caller):
+        return settings.demo and not caller.admin
+
+    def violation_out(v, manager, caller):
         job = manager.job_for_run(v["run_id"])
-        plate = mask_plate(v["plate"]) if settings.demo else v["plate"]
+        plate = mask_plate(v["plate"]) if plates_hidden(caller) else v["plate"]
         frames = f"{v['plate_frames_read']}/{v['plate_frames_tried']}" if v["plate_frames_read"] else None
         return ViolationOut(
             id=v["id"], job_id=job["id"] if job else None, track_id=v["track_id"], video_time_s=v["video_time_s"],
             first_seen_s=v["first_seen_s"], last_seen_s=v["last_seen_s"], votes_without_helmet=v["votes_without"],
             votes_with_helmet=v["votes_with"], max_conf=v["max_conf"], plate=plate, plate_conf=v["plate_conf"],
-            plate_frames=frames, review_status=v["review_status"],
-            snapshot_url=f"/violations/{v['id']}/snapshot" if v["snapshot"] else None,
-            plate_image_url=f"/violations/{v['id']}/plate" if v["plate_image"] and not settings.demo else None,
-            editable=manager.can_edit(job, token))
+            plate_frames=frames, review_status=v["review_status"], reviewed_by=v.get("reviewed_by"),
+            reviewed_at=v.get("reviewed_at"),
+            snapshot_url=signed(f"/violations/{v['id']}/snapshot") if v["snapshot"] else None,
+            plate_image_url=signed(f"/violations/{v['id']}/plate")
+            if v["plate_image"] and not plates_hidden(caller) else None,
+            editable=manager.can_edit(job, caller.token, caller.admin))
 
     def get_violation(violation_id, request):
         v = request.app.state.log.violation(violation_id)
         job = request.app.state.jobs.job_for_run(v["run_id"]) if v else None
         if v is None or job is None:  # rows of CLI runs are not exposed through the API
             raise HTTPException(404, "Violation not found")
+        return v, job
+
+    def visible_violation(violation_id, request, manager, caller):
+        v, job = get_violation(violation_id, request)
+        if not manager.can_see(job, caller.token, caller.admin):
+            raise HTTPException(404, "Violation not found")  # 404, not 403: do not reveal that it exists
         return v, job
 
     @app.get("/docs", include_in_schema=False)
@@ -281,12 +385,19 @@ def create_app(settings=None):
         return {"classes": list(det.names.values()), "thresholds": request.app.state.thresholds,
                 "input_size": det.imgsz, "dynamic_input": det.dynamic, "runtime": "onnxruntime",
                 "plates_enabled": request.app.state.plates, "demo": settings.demo,
+                "author_enabled": bool(settings.admin_token),
                 "limits": {"max_image_mb": settings.max_image_mb, "max_video_mb": settings.max_video_mb,
                            "max_video_seconds": settings.max_video_seconds, "vid_stride": settings.vid_stride,
-                           "upload_ttl_s": settings.upload_ttl_s}}
+                           "upload_ttl_s": settings.upload_ttl_s, "detect_per_min": settings.rate_detect_per_min,
+                           "uploads_per_hour": settings.rate_uploads_per_hour}}
+
+    @app.get("/me", response_model=Me, tags=["service"])
+    def me(caller: CallerDep):
+        return Me(role=caller.role)
 
     @app.get("/metrics", tags=["service"])
-    def metrics(request: Request, manager: Manager):
+    def metrics(request: Request, manager: Manager, caller: CallerDep):
+        require_author(caller)
         m = request.app.state.metrics
         return {"uptime_s": round(time.time() - m.started), "routes": m.snapshot(), "jobs": manager.counts(),
                 "video_frames_processed": manager.frames_processed}
@@ -294,7 +405,9 @@ def create_app(settings=None):
     # ------------------------------------------------------------------ images
 
     @app.post("/detect", response_model=DetectResponse, tags=["images"])
-    async def detect(request: Request, file: Annotated[UploadFile, File(description="JPEG, PNG, WebP or BMP image")]):
+    async def detect(request: Request, caller: CallerDep,
+                     file: Annotated[UploadFile, File(description="JPEG, PNG, WebP or BMP image")]):
+        rate_limit(caller, "detect", settings.rate_detect_per_min, 60)
         if file.content_type not in IMAGE_TYPES:
             raise HTTPException(415, f"Unsupported image type: {file.content_type}")
         data = await file.read(int(settings.max_image_mb * CHUNK) + 1)
@@ -326,7 +439,8 @@ def create_app(settings=None):
 
     @app.post("/jobs/video", response_model=JobCreated, status_code=202, tags=["video"])
     async def create_job(file: Annotated[UploadFile, File(description="MP4, MOV, AVI, MKV or WebM video")],
-                         manager: Manager, token: Token):
+                         manager: Manager, caller: CallerDep):
+        token = caller.token
         if token is not None and not 16 <= len(token) <= 128:
             raise HTTPException(422, "X-Owner-Token must be 16-128 characters")
         ext = Path(file.filename or "").suffix.lower()
@@ -334,6 +448,7 @@ def create_app(settings=None):
             raise HTTPException(415, f"Unsupported video type: {ext or 'unknown'}")
         if manager.counts().get("queued", 0) >= settings.max_queued:
             raise HTTPException(429, "Too many videos are waiting; try again in a few minutes")
+        rate_limit(caller, "upload", settings.rate_uploads_per_hour, 3600)
         tmp_dir = Path(tempfile.mkdtemp(dir=settings.data_dir))
         path = tmp_dir / f"upload{ext}"
         try:
@@ -353,15 +468,15 @@ def create_app(settings=None):
             job, token = manager.create(path, Path(file.filename or "video").name, meta, token)
         finally:
             shutil.rmtree(tmp_dir, ignore_errors=True)
-        return JobCreated(job=job_out(job, token, manager), owner_token=token)
+        return JobCreated(job=job_out(job, Caller(token, caller.admin, caller.client), manager), owner_token=token)
 
     @app.get("/jobs", response_model=list[JobOut], tags=["video"])
-    def list_jobs(manager: Manager, token: Token):
-        return [job_out(j, token, manager) for j in manager.visible(token)]
+    def list_jobs(manager: Manager, caller: CallerDep):
+        return [job_out(j, caller, manager) for j in manager.visible(caller.token, caller.admin)]
 
     @app.get("/jobs/{job_id}", response_model=JobOut, tags=["video"])
-    def job_status(job_id: str, manager: Manager, token: Token):
-        return job_out(get_job(job_id, manager), token, manager)
+    def job_status(job_id: str, manager: Manager, caller: CallerDep):
+        return job_out(get_job(job_id, manager), caller, manager)
 
     @app.get("/jobs/{job_id}/tracks", tags=["video"])
     def job_tracks(job_id: str, manager: Manager):
@@ -378,10 +493,11 @@ def create_app(settings=None):
                             else None, filename=job.get("filename"), content_disposition_type="inline")
 
     @app.delete("/jobs/{job_id}", status_code=204, tags=["video"])
-    def delete_job(job_id: str, manager: Manager, token: Token):
+    def delete_job(job_id: str, manager: Manager, caller: CallerDep):
         job = get_job(job_id, manager)
-        if not manager.can_edit(job, token):
-            raise HTTPException(403, "Only the uploader can delete this job")
+        if not manager.can_edit(job, caller.token, caller.admin):
+            raise HTTPException(403, "The sample is read-only" if job.get("readonly")
+                                else "Only the uploader or the author can delete this video")
         if job["status"] == "running":
             raise HTTPException(409, "The job is running; delete it when it has finished")
         manager.delete(job)
@@ -389,50 +505,51 @@ def create_app(settings=None):
     # ------------------------------------------------------------------ violations
 
     @app.get("/violations", response_model=list[ViolationOut], tags=["review"])
-    def list_violations(request: Request, manager: Manager, token: Token, job_id: str | None = None,
+    def list_violations(request: Request, manager: Manager, caller: CallerDep, job_id: str | None = None,
                         review_status: Literal["pending", "confirmed", "rejected"] | None = None,
                         limit: Annotated[int, Query(ge=1, le=1000)] = 200):
-        if job_id is not None:
+        if job_id is not None:  # a job's ID is its capability: whoever has it may see its violations
             run_ids = [get_job(job_id, manager).get("run_id")]
         else:
-            run_ids = [j["run_id"] for j in manager.visible(token) if j.get("run_id")]
+            run_ids = [j["run_id"] for j in manager.visible(caller.token, caller.admin) if j.get("run_id")]
         rows = request.app.state.log.violations(run_ids=[r for r in run_ids if r], review_status=review_status,
                                                 limit=limit)
-        return [violation_out(v, manager, token) for v in rows]
+        return [violation_out(v, manager, caller) for v in rows]
 
     @app.get("/violations/{violation_id}", response_model=ViolationOut, tags=["review"])
-    def one_violation(violation_id: int, request: Request, manager: Manager,
-                      token: Token):
-        v, _ = get_violation(violation_id, request)
-        return violation_out(v, manager, token)
+    def one_violation(violation_id: int, request: Request, manager: Manager, caller: CallerDep):
+        v, _ = visible_violation(violation_id, request, manager, caller)
+        return violation_out(v, manager, caller)
 
     @app.patch("/violations/{violation_id}", response_model=ViolationOut, tags=["review"])
-    def review(violation_id: int, body: ReviewIn, request: Request, manager: Manager,
-               token: Token):
-        v, job = get_violation(violation_id, request)
-        if not manager.can_edit(job, token):
+    def review(violation_id: int, body: ReviewIn, request: Request, manager: Manager, caller: CallerDep):
+        v, job = visible_violation(violation_id, request, manager, caller)
+        if not manager.can_edit(job, caller.token, caller.admin):
             raise HTTPException(403, "The sample is read-only" if job.get("readonly")
-                                else "Only the uploader can review this video's violations")
-        request.app.state.log.set_review(violation_id, body.review_status)
-        return violation_out(request.app.state.log.violation(violation_id), manager, token)
+                                else "Only the uploader or the author can review this video's violations")
+        request.app.state.log.set_review(violation_id, body.review_status, by=caller.role if caller.admin
+                                         else "uploader")
+        return violation_out(request.app.state.log.violation(violation_id), manager, caller)
 
-    def violation_file(violation_id, request, column):
+    def violation_file(violation_id, request, column, sig):
+        path_str = f"/violations/{violation_id}/{'snapshot' if column == 'snapshot' else 'plate'}"
+        if not sig or not hmac.compare_digest(sig, sign(path_str)):
+            raise HTTPException(404, "Image not available")
         v, job = get_violation(violation_id, request)
         rel = v[column]
         path = (Path(job["dir"]) / rel).resolve() if rel else None
         if path is None or Path(job["dir"]).resolve() not in path.parents or not path.exists():
             raise HTTPException(404, "Image not available")
-        return FileResponse(path, media_type="image/jpeg")
+        return FileResponse(path, media_type="image/jpeg", headers={"Cache-Control": "private, max-age=3600"})
 
     @app.get("/violations/{violation_id}/snapshot", tags=["review"])
-    def snapshot(violation_id: int, request: Request):
-        return violation_file(violation_id, request, "snapshot")
+    def snapshot(violation_id: int, request: Request, sig: str | None = None):
+        return violation_file(violation_id, request, "snapshot", sig)
 
     @app.get("/violations/{violation_id}/plate", tags=["review"])
-    def plate_image(violation_id: int, request: Request):
-        if settings.demo:
-            raise HTTPException(404, "Plate images are not served in the public demo")
-        return violation_file(violation_id, request, "plate_image")
+    def plate_image(violation_id: int, request: Request, sig: str | None = None):
+        # The signed link is only handed out to callers allowed to see full plates (author, or a local install)
+        return violation_file(violation_id, request, "plate_image", sig)
 
     return app
 

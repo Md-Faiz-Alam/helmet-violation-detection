@@ -4,7 +4,8 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/primitives'
 import { apiUrl } from '@/lib/api'
 import { REPO_URL } from '@/data/evaluation'
-import { useHealth, useModelInfo, useTheme } from '@/lib/hooks'
+import { useHealth, useMe, useModelInfo, useTheme } from '@/lib/hooks'
+import { AuthorAccess } from './AuthorAccess'
 import { cn } from '@/lib/utils'
 
 const nav = [
@@ -34,11 +35,16 @@ export function Logo({ className }: { className?: string }) {
 function ApiStatus() {
   const health = useHealth()
   const model = useModelInfo()
+  const me = useMe()
   const up = health.data?.status === 'ok'
   const label = health.isPending ? 'Connecting' : up ? 'API online' : 'API offline'
   return (
     <div className="flex items-center gap-2">
-      {model.data?.demo && <Badge tone="accent">Public demo</Badge>}
+      {me.data?.role === 'author' ? (
+        <Badge tone="accent">Author</Badge>
+      ) : (
+        model.data?.demo && <Badge tone="accent">Public demo</Badge>
+      )}
       <span
         className="flex items-center gap-2 rounded-md border border-border bg-panel px-2.5 py-1 font-mono text-[11px] text-muted"
         title={up ? `RideSafe API ${health.data?.version}, ${model.data?.runtime ?? ''}` : 'The API is not reachable'}
@@ -91,6 +97,7 @@ export function AppShell() {
           </a>
         </nav>
         <div className="mt-auto hidden space-y-3 border-t border-border px-5 py-4 lg:block">
+          <AuthorAccess />
           <Button variant="ghost" size="sm" className="w-full justify-start px-2" onClick={toggle}>
             {dark ? <Sun /> : <Moon />}
             {dark ? 'Light mode' : 'Dark mode'}

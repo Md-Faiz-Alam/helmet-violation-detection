@@ -215,11 +215,20 @@ The API runs on ONNX Runtime without PyTorch ([backend/ridesafe/api.py](backend/
 - `GET /violations`, `PATCH /violations/{id}` (`pending` / `confirmed` / `rejected`), `GET /violations/{id}/snapshot`: the review queue on the SQLite log.
 - `GET /health`, `GET /model`, `GET /metrics` (request counts and latencies, jobs, frames processed).
 
-Uploads are size- and length-limited and deleted with their results after an hour. With `RIDESAFE_DEMO=true` (public demo) visitors see and review only their own uploads (a random `X-Owner-Token` that the browser keeps and sends with every request; without one, `POST /jobs/video` makes a token and returns it), plates are partly masked (`MP04 •• 7116`) and plate crops are not served. All settings: [backend/ridesafe/settings.py](backend/ridesafe/settings.py).
+#### Security and access
+- **Author (you):** set a long random key as `RIDESAFE_ADMIN_TOKEN` (in `.env` for Docker, as a secret in Azure; never in git) and sign in with it from the web app's sidebar ("Author sign-in"). The author sees every upload, reviews or deletes anything, sees full plates and `/metrics`, and has no rate limits. The key is compared in constant time, must be 32+ characters, and is kept only until the browser tab closes.
+- **Visitors** can only ever see and change their own uploads (identified by a random token their browser keeps) plus the read-only sample, in every mode. On the public site (`RIDESAFE_DEMO=true`, the default) plates are partly masked and plate crops are hidden from them.
+- **Nobody can change the model, code or settings through the API**; there is no endpoint for it.
+- **Audit trail:** every review change records who made it (author / uploader) and when, and is shown in the review console.
+- **Abuse limits:** per-visitor rate limits (30 photos a minute, 10 videos an hour), a cap on waiting videos, size and length limits, and uploads deleted after an hour. Behind a proxy the visitor is identified by the address the proxy itself adds, so a faked `X-Forwarded-For` does not get around the limits.
+- **No guessable links:** violations of other visitors return 404, image links are signed (HMAC), and job IDs are random 128-bit values.
+- Every rule has a test in [backend/tests/test_api.py](backend/tests/test_api.py). The API docs at `/docs` are public on purpose: they describe the API, they do not grant anything.
+
 
 ### Docker
 ```bash
-docker compose up --build                      # API on http://localhost:8000 (RIDESAFE_PORT=8080 for another port)
+python -c "import secrets; print(secrets.token_urlsafe(32))"   # once: put the output in .env as RIDESAFE_ADMIN_TOKEN=...
+docker compose up --build                      # API on http://localhost:8000 (RIDESAFE_PORT=8001 for another port)
 docker build -f backend/Dockerfile -t ridesafe-api .   # or just the image
 ```
 The image is built in two stages: the first installs PyTorch and Ultralytics only to export `models/best.pt` (and the COCO vehicle model for plate reading) to ONNX; the second contains only ONNX Runtime, headless OpenCV, RapidOCR and FastAPI. It runs as an unprivileged user, keeps uploads and the violation log in `/data` (a volume in `docker-compose.yml`), has a health check, and starts in about 3 s. **Size: 620 MB (259 MB compressed), against 2.27 GB (720 MB compressed) for the PyTorch stage alone.** CI builds it on every push, checks that PyTorch is not inside, and calls `/detect` on the running container.
@@ -247,7 +256,7 @@ How a violation is decided ([backend/ridesafe/tracking.py](backend/ridesafe/trac
 - The decision is made **when the rider leaves** (track lost for 30 frames, or the video ends), so early frames or an ID switch between two overlapping heads can't lock in a wrong verdict. Each violation is logged once.
 - On screen: green = helmet, red = violation, orange = "no helmet?" (more no-helmet votes, not enough to decide).
 
-**Measured on real footage.** The video benchmark has 4 **test** clips (reported only, never used for tuning) and 4 **validation** clips (for tuning video settings), all from Pexels ([manifest](eval/video_gt/videos.yaml); `python scripts/download_eval_videos.py` fetches them). Every rider in the test clips was labelled in [eval/video_gt/](eval/video_gt/) (helmet yes/no, readable plate, head boxes): drafted with model help, checked by hand on 1080p crops, then reviewed by a person, who corrected entries that were not riders. [scripts/eval_video.py](scripts/eval_video.py) scores each **rider**, not each frame.
+**Measured on real footage.** The video benchmark has 4 **test** clips (reported only, never used for tuning) and 4 **validation** clips (for tuning video settings), all from Pexels ([manifest](eval/video_gt/videos.yaml); `python scripts/download_eval_videos.py` fetches them). Every rider in the test clips was labelled in [eval/video_gt/](eval/video_gt/) (helmet yes/no, readable plate, head boxes): drafted from the tracker's boxes, checked by hand on 1080p crops and reviewed by the author, who corrected entries that were not riders. [scripts/eval_video.py](scripts/eval_video.py) scores each **rider**, not each frame.
 
 | Test clip | Scene | Riders (no helmet) | Violation recall | Violation precision |
 |---|---|---|---|---|

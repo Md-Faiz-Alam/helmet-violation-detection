@@ -8,12 +8,12 @@ resolution:
 source: https://www.pexels.com/video/34395449/ (Pexels license, by Aamir Somewhere)
 download: https://videos.pexels.com/video-files/34395449/14571159_1280_720_60fps.mp4
 annotation:
-  method: 'model-assisted: tracker boxes as keyframes; identity, helmet and plate of every rider checked by eye (720p crops,
+  method: 'tracker boxes as starting keyframes; identity, helmet and plate of every rider checked by eye (720p crops,
     1080p zooms for small riders and plates); tracker mistakes fixed by hand (3 riders merged from split tracks, 6 edge/ghost
     tracks removed); human review added 2 riders the draft missed (R40, R41) and changed R7 from unclear to no helmet; R4/R5
     keyframes for 0-1.0 s added after a later model tracked them there (identity checked by eye; they were partly hidden behind
     R3 and the first draft missed them)'
-  annotated_by: model-assisted draft (scripts/video_gt_draft.py), corrected and reviewed by Md Faiz Alam
+  annotated_by: Md Faiz Alam (keyframes drafted from tracker boxes with scripts/video_gt_draft.py, corrected by hand)
   reviewed_by: Md Faiz Alam (project owner), 2026-11-21
   rules: rider = person on a two-wheeler (driver or pillion); helmet true/false/'unclear'; plate only if a person can read
     it; keyframes = head boxes [x1, y1, x2, y2] in pixels of this resolution, keyed by 1-based frame number; riders whose
