@@ -1,4 +1,4 @@
-"""End-to-end smoke tests: the real model through each entry point (detect.py, track_video.py, app.py).
+"""End-to-end smoke tests: the real model through each entry point (detect.py, track_video.py, the API).
 
 Slow (they load the model), so they are excluded from a plain `pytest` run. Run them with:
     pytest -m smoke
@@ -127,17 +127,3 @@ def test_api_with_real_models(tmp_path, monkeypatch):
         assert job["summary"]["riders"] >= 3
         tracks = c.get(f"/jobs/{job_id}/tracks").json()
         assert len(tracks["frames"]) == 15  # 30 frames, every 2nd
-
-
-def test_streamlit_app_on_sample(monkeypatch):
-    from streamlit.testing.v1 import AppTest
-
-    monkeypatch.chdir(ROOT)  # the app uses paths relative to the project root
-    at = AppTest.from_file(str(ROOT / "app.py"), default_timeout=300).run()
-    assert not at.exception
-    [x for x in at.radio if x.label == "Input"][0].set_value("Sample").run()
-    at.selectbox[0].set_value("image1.jpg").run()
-    assert not at.exception
-    metrics = {m.label: int(m.value) for m in at.metric}
-    assert metrics["🚨 Without helmet"] >= 1
-    assert metrics["✅ With helmet"] >= 1

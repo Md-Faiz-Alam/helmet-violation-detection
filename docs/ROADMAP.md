@@ -41,6 +41,7 @@ What has been built, the decisions behind it, and what comes next. Numbers are e
   keyboard shortcuts, and a model card.
 - Continuous deployment to Azure (Container Apps + Static Web Apps) with OIDC sign-in, path filters and PR previews.
 - A public sample with faces and number plates blurred automatically.
+- Retired the original Streamlit demo; the React app and the API replace it.
 
 ## Next
 
@@ -53,10 +54,9 @@ In order of expected impact:
    temporal head-on-vehicle check on the validation clips.
 3. **Plate reading.** A plate-specific recognizer (for example fast-plate-ocr), measured on the saved plate crops;
    stricter vehicle matching so a rider behind another bike does not get its plate.
-4. **Retire the Streamlit demo** (`app.py`, `packages.txt`, its dependency and smoke test).
-5. **Production hardening.** Error monitoring and alerts, model versioning, and a job queue that survives restarts if
+4. **Production hardening.** Error monitoring and alerts, model versioning, and a job queue that survives restarts if
    the demo ever needs more than one replica.
-6. **Optional:** a vision-language model as a second opinion on low-confidence crops, measured for false-alarm
+5. **Optional:** a vision-language model as a second opinion on low-confidence crops, measured for false-alarm
    reduction and cost per call.
 
 Policy note: turbans are labelled "without helmet", which is visually true; Indian law exempts turban-wearing Sikhs,

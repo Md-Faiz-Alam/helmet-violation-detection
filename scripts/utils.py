@@ -1,4 +1,4 @@
-"""Small helpers shared by detect.py and app.py: thresholds (from the ridesafe package) and image listing."""
+"""Small helpers used by detect.py: thresholds (from the ridesafe package) and image listing."""
 
 from pathlib import Path
 
