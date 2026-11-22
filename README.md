@@ -84,7 +84,7 @@ The violation-class threshold is tuned **on the validation set** to maximize F2 
 ## 📂 Project Structure
 ```
 helmet-violation-detection/
-├── app.py                          # Streamlit web app (upload / webcam / samples)
+├── app.py                          # older Streamlit demo (to be removed)
 ├── configs/
 │   ├── base.yaml                   # shared training recipe
 │   ├── experiments/*.yaml          # one file per experiment (YOLOv8 / YOLO11 / YOLO26, imgsz, oversampling)
@@ -135,7 +135,8 @@ helmet-violation-detection/
 ├── tests/                          # tests of the scripts + end-to-end smoke tests
 ├── samples/                        # demo images for the app
 ├── docs/PROJECT_REVIEW_AND_PLAN.md # roadmap
-├── docker-compose.yml              # local API container (docker compose up --build)
+├── frontend/                       # React web app (Vite + TypeScript + Tailwind); Dockerfile + nginx for local runs
+├── docker-compose.yml              # local stack: API + web app (docker compose up --build)
 ├── requirements.txt
 ├── requirements-dev.txt            # + pytest, ruff
 ├── ruff.toml / pytest.ini          # lint and test settings
@@ -186,12 +187,22 @@ Tested with Python 3.13 (3.11+ should work). Run all commands from the project r
 ## 🚀 Usage
 
 ### Web app
+React + TypeScript (Vite, Tailwind CSS, TanStack Query, Recharts) in [frontend/](frontend/), talking to the API:
 ```bash
-streamlit run app.py
+docker compose up --build                      # web app on http://localhost:8080 + API (no Node or Python needed)
 ```
-- Upload an image, take a webcam photo, or pick a sample image
-- Tuned per-class thresholds (default) or one adjustable threshold
-- Counts riders with/without helmets and flags violations
+or, for development with hot reload (API running as above or with uvicorn):
+```bash
+cd frontend && npm install && npm run dev      # http://localhost:5173; /api is proxied to http://localhost:8000
+```
+- **Overview:** key results from the evaluation, how the pipeline works, and (when the API has a sample job) the sample video playing with live tracked boxes.
+- **Analyze:** drop a photo (boxes drawn in the browser, hover for class and confidence), or a video: upload progress, then live job stages (queued, tracking with frame counter and ETA, reading plates), then the original video with every rider's box drawn on a canvas in sync with playback, "final decision" vs "live votes" colouring, a clickable timeline of riders, and the violation list.
+- **Review console:** each violation with its snapshot, frame votes, confidence and plate; confirm or reject with the mouse or keys (J/K next/previous, C confirm, R reject, U undo).
+- **Model card:** the 9-model comparison, the headwear fix, the per-clip video benchmark, PyTorch vs ONNX Runtime, limitations, data and privacy.
+- Dark "control room" theme by default with a light mode; green = helmet, red = violation, amber = uncertain everywhere. Works on phones.
+- `npm run lint`, `npm run typecheck`, `npm test` (Vitest), `npm run build`; CI runs all four.
+
+The older Streamlit demo (`streamlit run app.py`) still works and will be removed once the web app is deployed.
 
 ### HTTP API
 ```bash
@@ -204,7 +215,7 @@ The API runs on ONNX Runtime without PyTorch ([backend/ridesafe/api.py](backend/
 - `GET /violations`, `PATCH /violations/{id}` (`pending` / `confirmed` / `rejected`), `GET /violations/{id}/snapshot`: the review queue on the SQLite log.
 - `GET /health`, `GET /model`, `GET /metrics` (request counts and latencies, jobs, frames processed).
 
-Uploads are size- and length-limited and deleted with their results after an hour. With `RIDESAFE_DEMO=true` (public demo) visitors see and review only their own uploads (owner token returned by `POST /jobs/video`, sent back as `X-Owner-Token`), plates are partly masked (`MP04 •• 7116`) and plate crops are not served. All settings: [backend/ridesafe/settings.py](backend/ridesafe/settings.py).
+Uploads are size- and length-limited and deleted with their results after an hour. With `RIDESAFE_DEMO=true` (public demo) visitors see and review only their own uploads (a random `X-Owner-Token` that the browser keeps and sends with every request; without one, `POST /jobs/video` makes a token and returns it), plates are partly masked (`MP04 •• 7116`) and plate crops are not served. All settings: [backend/ridesafe/settings.py](backend/ridesafe/settings.py).
 
 ### Docker
 ```bash
@@ -326,7 +337,7 @@ python scripts/benchmark_onnx.py               # -> reports/onnx_benchmark.md (P
 See [docs/PROJECT_REVIEW_AND_PLAN.md](docs/PROJECT_REVIEW_AND_PLAN.md).
 1. **ML rigor** ✅: threshold tuning, error analysis, dataset audit, model comparison (YOLOv8 / YOLO11 / YOLO26) and class rebalancing
 2. **Video system** ✅: rider tracking with ByteTrack ✅, per-rider violation logic ✅, head-to-vehicle association ✅ (evaluated; not worth it as a false-alarm filter on this data), number-plate OCR ✅ (best effort), video evaluation set ✅, headwear data ✅, SQLite violation log ✅
-3. **Deployment:** ONNX export + benchmark ✅, torch-free package ✅, FastAPI service ✅, Docker ✅, React web app, automatic deploys to Azure, live demo
+3. **Deployment:** ONNX export + benchmark ✅, torch-free package ✅, FastAPI service ✅, Docker ✅, React web app ✅, automatic deploys to Azure, live demo
 
 ---
 

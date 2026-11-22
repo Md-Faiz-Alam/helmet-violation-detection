@@ -1,0 +1,111 @@
+@import 'tailwindcss';
+@import '@fontsource-variable/inter';
+@import '@fontsource-variable/jetbrains-mono';
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* Theme tokens. Light is the base; .dark (default, set on <html>) is the "traffic control room".
+   Status colours carry the same meaning everywhere: green = helmet, red = violation, amber = uncertain. */
+:root {
+  --bg: #f6f7f9;
+  --bg-grid: rgb(15 23 42 / 0.045);
+  --panel: #ffffff;
+  --panel-2: #f1f3f6;
+  --border: #e2e6ec;
+  --border-strong: #cfd5de;
+  --fg: #0f172a;
+  --muted: #5b6578;
+  --subtle: #8a93a3;
+  --accent: #d48806;
+  --accent-fg: #1a1203;
+  --helmet: #16a34a;
+  --violation: #dc2626;
+  --uncertain: #d97706;
+  --pending: #64748b;
+  --ring: rgb(212 136 6 / 0.45);
+  color-scheme: light;
+}
+
+.dark {
+  --bg: #0a0e13;
+  --bg-grid: rgb(148 163 184 / 0.05);
+  --panel: #10161e;
+  --panel-2: #151c26;
+  --border: #1f2935;
+  --border-strong: #2c3846;
+  --fg: #e6ebf2;
+  --muted: #8b97a8;
+  --subtle: #5d6979;
+  --accent: #f5a524;
+  --accent-fg: #1a1203;
+  --helmet: #22c55e;
+  --violation: #ef4444;
+  --uncertain: #f59e0b;
+  --pending: #64748b;
+  --ring: rgb(245 165 36 / 0.5);
+  color-scheme: dark;
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-panel: var(--panel);
+  --color-panel-2: var(--panel-2);
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+  --color-fg: var(--fg);
+  --color-muted: var(--muted);
+  --color-subtle: var(--subtle);
+  --color-accent: var(--accent);
+  --color-accent-fg: var(--accent-fg);
+  --color-helmet: var(--helmet);
+  --color-violation: var(--violation);
+  --color-uncertain: var(--uncertain);
+  --color-pending: var(--pending);
+  --font-sans: 'Inter Variable', ui-sans-serif, system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono Variable', ui-monospace, SFMono-Regular, monospace;
+}
+
+@layer base {
+  * {
+    border-color: var(--border);
+  }
+  html {
+    background: var(--bg);
+    color: var(--fg);
+    font-family: var(--font-sans);
+    font-feature-settings: 'cv11', 'ss01';
+    -webkit-font-smoothing: antialiased;
+  }
+  body {
+    min-height: 100dvh;
+    background-image:
+      linear-gradient(var(--bg-grid) 1px, transparent 1px),
+      linear-gradient(90deg, var(--bg-grid) 1px, transparent 1px);
+    background-size: 32px 32px;
+  }
+  :focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+  }
+  ::selection {
+    background: rgb(245 165 36 / 0.3);
+  }
+}
+
+@layer utilities {
+  .tabular {
+    font-variant-numeric: tabular-nums;
+  }
+  .scan-line {
+    background: linear-gradient(90deg, transparent, var(--accent), transparent);
+    animation: scan 2.4s ease-in-out infinite;
+  }
+  @keyframes scan {
+    0% { transform: translateX(-100%); }
+    100% { transform: translateX(100%); }
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .scan-line { animation: none; }
+}

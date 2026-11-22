@@ -174,6 +174,25 @@ def test_demo_mode_ownership_and_masking(make_client, tmp_path):
     assert c.delete(f"/jobs/{job_id}", headers=other).status_code == 403
 
 
+def test_one_client_token_owns_all_its_uploads(make_client, tmp_path):
+    c = make_client(demo=True)
+    me = {"X-Owner-Token": "browser-token-0123456789"}
+    clip = write_video(tmp_path / "clip.mp4")
+    ids = []
+    for _ in range(2):
+        with open(clip, "rb") as f:
+            r = c.post("/jobs/video", files={"file": ("clip.mp4", f, "video/mp4")}, headers=me)
+        assert r.json()["owner_token"] == me["X-Owner-Token"]
+        ids.append(r.json()["job"]["id"])
+    for job_id in ids:
+        wait_finished(c, job_id)
+    assert sorted(j["id"] for j in c.get("/jobs", headers=me).json()) == sorted(ids)
+    assert len(c.get("/violations", headers=me).json()) == 2
+    with open(clip, "rb") as f:
+        bad = c.post("/jobs/video", files={"file": ("clip.mp4", f, "video/mp4")}, headers={"X-Owner-Token": "short"})
+    assert bad.status_code == 422
+
+
 def test_uploads_expire_with_their_violations(make_client, tmp_path):
     c = make_client(upload_ttl_s=60)
     job_id = upload_video(c, write_video(tmp_path / "clip.mp4")).json()["job"]["id"]

@@ -128,15 +128,17 @@ class JobManager:
 
     # ------------------------------------------------------------------ public
 
-    def create(self, upload, filename, meta):
-        """Register an uploaded video (already saved at `upload`) and queue it. Returns (job, owner token)."""
+    def create(self, upload, filename, meta, token=None):
+        """Register an uploaded video (already saved at `upload`) and queue it. Returns (job, owner token).
+
+        `token` lets one client (a browser) own all of its uploads; a new one is made if it is not given."""
         fps, frames, width, height = meta
         job_id = uuid.uuid4().hex
         d = self.root / job_id
         d.mkdir(parents=True)
         video = d / f"input{Path(upload).suffix.lower() or '.mp4'}"
         shutil.move(str(upload), video)
-        token = secrets.token_urlsafe(24)
+        token = token or secrets.token_urlsafe(24)
         job = {"id": job_id, "created_at": utc_now(), "created_ts": time.time(), "status": "queued",
                "stage": "queued", "filename": filename, "video": video.name, "fps": fps, "width": width,
                "height": height, "frames_total": frames, "duration_s": round(frames / fps, 2) if fps else None,

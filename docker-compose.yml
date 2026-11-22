@@ -1,6 +1,7 @@
-# Local stack: the API (and, once it exists, the React web app).
+# Local stack: the API and the React web app.
 #
-#   docker compose up --build        -> API on http://localhost:8000 (docs at /docs; other port: RIDESAFE_PORT)
+#   docker compose up --build        -> web app on http://localhost:8080, API on http://localhost:8000 (docs at /docs)
+#                                       other ports: RIDESAFE_WEB_PORT, RIDESAFE_PORT
 #   docker compose down              (add -v to also delete uploads, results and the violation log)
 #
 # Settings are RIDESAFE_* environment variables (backend/ridesafe/settings.py).
@@ -20,6 +21,15 @@ services:
       RIDESAFE_MAX_VIDEO_SECONDS: "300"
     volumes:
       - ridesafe-data:/data           # uploads, job results, SQLite violation log
+    restart: unless-stopped
+
+  web:
+    build: frontend
+    image: ridesafe-web:local
+    ports:
+      - "${RIDESAFE_WEB_PORT:-8080}:80"
+    depends_on:
+      - api
     restart: unless-stopped
 
 volumes:

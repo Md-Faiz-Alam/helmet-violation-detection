@@ -19,7 +19,8 @@ Endpoints
     GET    /violations/{id}/snapshot     the violator's snapshot (JPEG)
     GET    /violations/{id}/plate        the plate crop (JPEG; not in demo mode)
 
-Ownership: POST /jobs/video returns an owner token once; send it back as the X-Owner-Token header.
+Ownership: send a random X-Owner-Token (16-128 characters) with POST /jobs/video and with later requests;
+without one, POST /jobs/video makes a token and returns it once. A browser keeps one token for all its uploads.
 In demo mode (RIDESAFE_DEMO=true) visitors see and review only their own uploads plus the read-only
 sample, plates are partly masked (MP04 •• 7116) and plate crops are not served. Settings: ridesafe.settings.
 """
@@ -309,7 +310,9 @@ def create_app(settings=None):
 
     @app.post("/jobs/video", response_model=JobCreated, status_code=202, tags=["video"])
     async def create_job(file: Annotated[UploadFile, File(description="MP4, MOV, AVI, MKV or WebM video")],
-                         manager: Manager):
+                         manager: Manager, token: Token):
+        if token is not None and not 16 <= len(token) <= 128:
+            raise HTTPException(422, "X-Owner-Token must be 16-128 characters")
         ext = Path(file.filename or "").suffix.lower()
         if ext not in VIDEO_EXTS:
             raise HTTPException(415, f"Unsupported video type: {ext or 'unknown'}")
@@ -329,7 +332,7 @@ def create_app(settings=None):
             fps, frames, _, _ = meta
             if fps and frames / fps > settings.max_video_seconds:
                 raise HTTPException(422, f"Video too long ({frames / fps:.0f} s, limit {settings.max_video_seconds:g} s)")
-            job, token = manager.create(path, Path(file.filename or "video").name, meta)
+            job, token = manager.create(path, Path(file.filename or "video").name, meta, token)
         finally:
             shutil.rmtree(tmp_dir, ignore_errors=True)
         return JobCreated(job=job_out(job, token, manager), owner_token=token)
