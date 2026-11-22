@@ -16,6 +16,7 @@
     RIDESAFE_VID_STRIDE         analyse every Nth video frame               2
     RIDESAFE_UPLOAD_TTL_S       delete uploads and their results after this many seconds (0 = keep)   3600
     RIDESAFE_CORS_ORIGINS       comma-separated origins allowed to call the API                       *
+    RIDESAFE_CORS_ORIGIN_REGEX  also allow origins matching this regex (e.g. the web app's PR previews)  (none)
     RIDESAFE_RATE_DETECT        photo checks per minute per visitor (0 = no limit)                    30
     RIDESAFE_RATE_UPLOADS       video uploads per hour per visitor (0 = no limit)                     10
     RIDESAFE_URL_SECRET         key that signs image links (default: random at each start)
@@ -62,3 +63,4 @@ class Settings:
     trusted_proxy: bool = field(default_factory=lambda: _flag("TRUSTED_PROXY", False))
     cors_origins: tuple = field(default_factory=lambda: tuple(
         o.strip() for o in _env("CORS_ORIGINS", "*").split(",") if o.strip()))
+    cors_origin_regex: str = field(default_factory=lambda: _env("CORS_ORIGIN_REGEX", ""))

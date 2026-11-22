@@ -1,0 +1,34 @@
+# Removes a pull request's preview copy of the web app (made by the deploy-web job in ci.yml) when the pull
+# request is merged or closed. The Free tier allows only a few previews at once.
+name: Close web app preview
+
+on:
+  pull_request:
+    types: [closed]
+    paths: [frontend/**]
+
+permissions:
+  contents: read
+  id-token: write  # OIDC sign-in to Azure
+
+jobs:
+  close:
+    name: Close preview
+    if: github.event.pull_request.head.repo.full_name == github.repository && vars.AZURE_CLIENT_ID != ''
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+      - id: key
+        run: |
+          key=$(az staticwebapp secrets list -n ridesafe-web -g ridesafe-rg --query properties.apiKey -o tsv)
+          echo "::add-mask::$key"
+          echo "value=$key" >> "$GITHUB_OUTPUT"
+      - uses: Azure/static-web-apps-deploy@v1
+        with:
+          azure_static_web_apps_api_token: ${{ steps.key.outputs.value }}
+          action: close

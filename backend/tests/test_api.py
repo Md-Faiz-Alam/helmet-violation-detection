@@ -133,6 +133,16 @@ def test_weak_or_missing_author_key(make_client):
     assert c.get("/me", headers=AUTHOR).status_code == 401
 
 
+def test_cors_allows_the_web_app_and_its_previews_only(make_client):
+    c = make_client(cors_origins=("https://app.example.net",),
+                    cors_origin_regex=r"https://app-\d+\.example\.net")
+    allowed = "access-control-allow-origin"
+    for origin, ok in [("https://app.example.net", True), ("https://app-12.example.net", True),
+                       ("https://evil.example.com", False), ("https://app-12.example.net.evil.com", False)]:
+        r = c.get("/health", headers={"Origin": origin})
+        assert (r.headers.get(allowed) == origin) is ok, origin
+
+
 def test_docs_work_behind_a_path_prefix(make_client):
     """The web app proxies the API under /api: the docs must not ask for /openapi.json at the site root."""
     c = make_client()

@@ -293,7 +293,8 @@ def create_app(settings=None):
                               "own uploads; the author (Authorization: Bearer key) manages everything. Source "
                               "code (AGPL-3.0): https://github.com/Md-Faiz-Alam/helmet-violation-detection")
     app.state.settings, app.state.metrics, app.state.limiter = settings, Metrics(), RateLimiter()
-    app.add_middleware(CORSMiddleware, allow_origins=list(settings.cors_origins), allow_methods=["*"],
+    app.add_middleware(CORSMiddleware, allow_origins=list(settings.cors_origins),
+                       allow_origin_regex=settings.cors_origin_regex or None, allow_methods=["*"],
                        allow_headers=["*"], expose_headers=["Content-Range", "Accept-Ranges", "Retry-After"])
 
     upload_limits = {"/detect": settings.max_image_mb, "/jobs/video": settings.max_video_mb}

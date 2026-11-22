@@ -233,6 +233,22 @@ docker build -f backend/Dockerfile -t ridesafe-api .   # or just the image
 ```
 The image is built in two stages: the first installs PyTorch and Ultralytics only to export `models/best.pt` (and the COCO vehicle model for plate reading) to ONNX; the second contains only ONNX Runtime, headless OpenCV, RapidOCR and FastAPI. It runs as an unprivileged user, keeps uploads and the violation log in `/data` (a volume in `docker-compose.yml`), has a health check, and starts in about 3 s. **Size: 620 MB (259 MB compressed), against 2.27 GB (720 MB compressed) for the PyTorch stage alone.** CI builds it on every push, checks that PyTorch is not inside, and calls `/detect` on the running container.
 
+### Deployment (Azure, automatic)
+Every push to `main` deploys what changed, and only after every test job has passed ([.github/workflows/ci.yml](.github/workflows/ci.yml)):
+
+```
+push to main ─ lint, unit, smoke, Docker and web tests must all pass, otherwise nothing deploys
+  ├─ backend/, models/ or configs/ changed → image pushed to ghcr.io → new Azure Container Apps revision → live health check
+  └─ frontend/ changed                     → React app built with the API address → Azure Static Web Apps
+pull request touching frontend/            → a preview copy of the web app, linked on the PR, removed when it closes
+```
+
+- **API:** Azure Container Apps, consumption plan, 1 vCPU / 2 GiB, scales to zero when idle (the first request after a quiet spell takes about 30 s) and to at most one replica, because video jobs live in the API process.
+- **Web app:** Azure Static Web Apps, Free tier; client-side routes, long-lived caching for hashed assets, security headers ([frontend/public/staticwebapp.config.json](frontend/public/staticwebapp.config.json)).
+- **No stored passwords:** GitHub Actions signs in to Azure with OIDC federated credentials, and that identity may change only the RideSafe resource group. The site's deployment key is read during the run, never saved in GitHub.
+- **Low cost:** images on GitHub Container Registry (free for public images), no Log Analytics workspace, nothing running while idle, and a monthly budget alert.
+- **One-time setup:** [deploy/azure_setup.sh](deploy/azure_setup.sh), run in Azure Cloud Shell, creates everything in one resource group (delete the group to remove it all) and prints the four repository variables to set. Production settings: `RIDESAFE_DEMO=true`, the author key and the image-link key as Container Apps secrets, `RIDESAFE_TRUSTED_PROXY=true`, and CORS limited to the web app and its previews (`RIDESAFE_CORS_ORIGINS`, `RIDESAFE_CORS_ORIGIN_REGEX`).
+
 ### Inference on images
 ```bash
 python scripts/detect.py --source data/test/images --n_samples 5   # tuned thresholds from configs/thresholds.yaml
