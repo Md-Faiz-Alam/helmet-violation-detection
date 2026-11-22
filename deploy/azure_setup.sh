@@ -165,6 +165,7 @@ info "Contributor on $RG only"
 # ------------------------------------------------------------------------------------------------ budget
 step "Budget alert: \$$BUDGET_USD per month on the subscription (50%, 80%, 100% and forecast 100%)"
 EMAIL=$(az account show --query user.name -o tsv)
+EMAIL="${EMAIL##*#}"  # personal Microsoft accounts sign in as live.com#name@example.com
 START=$(date -u +%Y-%m-01T00:00:00Z)
 BUDGET_BODY=$(cat <<JSON
 {"properties": {"category": "Cost", "amount": $BUDGET_USD, "timeGrain": "Monthly",
