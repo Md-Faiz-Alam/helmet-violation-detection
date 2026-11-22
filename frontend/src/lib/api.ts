@@ -9,7 +9,8 @@ export const apiUrl = (path: string) => `${API_URL}${path}`
 // ----------------------------------------------------------------------------- types (mirror backend/ridesafe/api.py)
 
 export type ClassName = 'With Helmet' | 'Without Helmet'
-export type TrackLabel = 'violation' | 'uncertain' | 'helmet' | 'pending'
+/** not_riding / cyclist: the riding check found no motorcycle under this head (a pedestrian) or a bicycle. */
+export type TrackLabel = 'violation' | 'uncertain' | 'helmet' | 'pending' | 'not_riding' | 'cyclist'
 export type ReviewStatus = 'pending' | 'confirmed' | 'rejected'
 export type JobStatus = 'queued' | 'running' | 'finished' | 'failed'
 

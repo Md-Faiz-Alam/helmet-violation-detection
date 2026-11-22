@@ -66,7 +66,7 @@ def make_client(tmp_path, monkeypatch):
     clients = []
 
     def make(**overrides):
-        base = {"plates": False, "vid_stride": 2, "admin_token": ADMIN_KEY, "rate_detect_per_min": 0,
+        base = {"plates": False, "riding_check": False, "vid_stride": 2, "admin_token": ADMIN_KEY, "rate_detect_per_min": 0,
                 "rate_uploads_per_hour": 0}
         s = replace(Settings(), data_dir=tmp_path / f"data{len(clients)}", **{**base, **overrides})
         c = TestClient(api.create_app(s), headers=ME)  # requests come from "my" browser by default
@@ -349,7 +349,7 @@ def test_read_only_sample_job(make_client, tmp_path, monkeypatch):
 
     monkeypatch.setattr(api, "build_components", fake_components)
     sample = tmp_path / "sample"
-    make_sample(write_video(tmp_path / "clip.mp4"), sample, replace(Settings(), plates=False, vid_stride=2))
+    make_sample(write_video(tmp_path / "clip.mp4"), sample, replace(Settings(), plates=False, riding_check=False, vid_stride=2))
     assert (sample / "job.json").exists() and (sample / "tracks.json").exists()
 
     for _ in range(2):  # a restart must not import the sample's violations twice
@@ -363,3 +363,21 @@ def test_read_only_sample_job(make_client, tmp_path, monkeypatch):
             assert r.status_code == 403
         assert c.get(v["snapshot_url"]).status_code == 200
         assert c.app.state.jobs.expire(now=time.time() + 10_000) == 0
+
+
+class NoVehicles:
+    """A COCO detector stand-in that never finds a motorcycle or bicycle."""
+    names = {0: "person", 1: "bicycle", 3: "motorcycle"}
+
+    def __call__(self, img, conf=None, agnostic=False):
+        return np.zeros((0, 6), np.float32)
+
+
+def test_riding_check_stops_logging_people_not_on_a_motorcycle(make_client, tmp_path, monkeypatch):
+    monkeypatch.setattr(api, "build_vehicle_detector", lambda settings, plate_reader: NoVehicles())
+    c = make_client(riding_check=True)
+    job_id = upload_video(c, write_video(tmp_path / "clip.mp4")).json()["job"]["id"]
+    assert wait_finished(c, job_id)["status"] == "finished"
+    assert c.get("/violations", params={"job_id": job_id}).json() == []  # same clip as above, but nobody rides
+    tracks = c.get(f"/jobs/{job_id}/tracks").json()
+    assert "not_riding" in {t["label"] for t in tracks["tracks"].values()}

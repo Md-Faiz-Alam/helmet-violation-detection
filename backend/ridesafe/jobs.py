@@ -27,10 +27,11 @@ from pathlib import Path
 import cv2
 
 from ridesafe.bytetrack import ByteTrackConfig
-from ridesafe.tracking import SAFE_CLASS, UNCERTAIN, VIOLATION_CLASS
+from ridesafe.tracking import CYCLIST, NOT_RIDING, SAFE_CLASS, UNCERTAIN, VIOLATION_CLASS
 from ridesafe.video import VideoAnalyzer
 
-LABELS = {VIOLATION_CLASS: "violation", UNCERTAIN: "uncertain", SAFE_CLASS: "helmet", None: "pending"}
+LABELS = {VIOLATION_CLASS: "violation", UNCERTAIN: "uncertain", SAFE_CLASS: "helmet", None: "pending",
+          NOT_RIDING: "not_riding", CYCLIST: "cyclist"}
 ACTIVE = ("queued", "running")
 
 
@@ -59,9 +60,11 @@ def probe_video(path):
 
 
 class JobManager:
-    def __init__(self, settings, detector, log, thresholds, plate_reader=None, start_threads=True):
+    def __init__(self, settings, detector, log, thresholds, plate_reader=None, start_threads=True,
+                 vehicle_detector=None):
         self.s, self.detector, self.log, self.thresholds = settings, detector, log, thresholds
         self.plate_reader = plate_reader
+        self.vehicles = vehicle_detector  # riding check on when given (ridesafe.tracking)
         self.root = Path(settings.data_dir) / "jobs"
         self.root.mkdir(parents=True, exist_ok=True)
         self.jobs = {}
@@ -230,13 +233,15 @@ class JobManager:
         """Analyse one job's video (blocking). Used by the worker and by --make-sample."""
         d = Path(job["dir"])
         settings = {"vid_stride": job["vid_stride"], "thresholds": self.thresholds, "plates": bool(self.plate_reader),
+                    "riding_check": self.vehicles is not None,
                     "runtime": "onnxruntime", "job": job["id"]}
         run_id = self.log.start_run(f"job:{job['id']}", self.s.model, str(d), settings)
         self._update(job, status="running", stage="analyzing", started_at=utc_now(), run_id=run_id)
         analyzer = VideoAnalyzer(self.detector, self.thresholds, d, log=self.log, run_id=run_id,
                                  tracker_config=ByteTrackConfig.from_yaml(self.s.tracker), fps=job["fps"],
                                  vid_stride=job["vid_stride"], plate_reader=self.plate_reader,
-                                 caption_plates=not self.s.demo, on_message=None)
+                                 caption_plates=not self.s.demo, on_message=None,
+                                 vehicle_detector=self.vehicles)
         cap = cv2.VideoCapture(str(d / job["video"]))
         frames, frame_idx, done = [], 0, 0
         t0 = last_save = time.perf_counter()
@@ -318,7 +323,7 @@ def make_sample(video, out, settings=None, anonymize=False, credit=None):
     import tempfile
     from dataclasses import replace
 
-    from ridesafe.api import build_components
+    from ridesafe.api import build_components, build_vehicle_detector
     from ridesafe.settings import Settings
 
     meta = probe_video(video)
@@ -328,7 +333,8 @@ def make_sample(video, out, settings=None, anonymize=False, credit=None):
     with tempfile.TemporaryDirectory() as tmp:
         settings = replace(settings or Settings(), data_dir=Path(tmp), sample_dir="")
         detector, log, thresholds, plate_reader = build_components(settings)
-        manager = JobManager(settings, detector, log, thresholds, plate_reader, start_threads=False)
+        manager = JobManager(settings, detector, log, thresholds, plate_reader, start_threads=False,
+                             vehicle_detector=build_vehicle_detector(settings, plate_reader))
         upload = Path(tmp) / Path(video).name
         shutil.copy(video, upload)
         job, _ = manager.create(upload, Path(video).name, meta)

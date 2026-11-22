@@ -6,6 +6,8 @@ export const labelTone: Record<TrackLabel, Tone> = {
   uncertain: 'uncertain',
   helmet: 'helmet',
   pending: 'neutral',
+  not_riding: 'neutral',
+  cyclist: 'neutral',
 }
 
 export const labelText: Record<TrackLabel, string> = {
@@ -13,6 +15,8 @@ export const labelText: Record<TrackLabel, string> = {
   uncertain: 'Uncertain',
   helmet: 'Helmet',
   pending: 'Deciding',
+  not_riding: 'Not riding',
+  cyclist: 'Cyclist',
 }
 
 export const reviewTone: Record<ReviewStatus, Tone> = { pending: 'neutral', confirmed: 'violation', rejected: 'helmet' }

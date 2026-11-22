@@ -8,13 +8,15 @@ const LABEL_COLOR: Record<TrackLabel, string> = {
   uncertain: '--uncertain',
   helmet: '--helmet',
   pending: '--pending',
+  not_riding: '--pending',
+  cyclist: '--pending',
 }
 
-/** The four status colours from the current theme (read once per draw, not once per box). */
+/** The status colours from the current theme (read once per draw, not once per box). */
 function themeColors(): Record<TrackLabel, string> {
   const style = getComputedStyle(document.documentElement)
   const read = (label: TrackLabel) => style.getPropertyValue(LABEL_COLOR[label]).trim() || '#888888'
-  return { violation: read('violation'), uncertain: read('uncertain'), helmet: read('helmet'), pending: read('pending') }
+  return Object.fromEntries((Object.keys(LABEL_COLOR) as TrackLabel[]).map((l) => [l, read(l)])) as Record<TrackLabel, string>
 }
 
 /** Index of the processed frame shown at time t (the last one at or before t), or -1. */

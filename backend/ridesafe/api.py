@@ -85,6 +85,16 @@ def build_components(settings):
     return detector, log, thresholds, plate_reader
 
 
+def build_vehicle_detector(settings, plate_reader):
+    """The COCO model for the riding check: the plate reader's own copy when there is one (ONNX Runtime sessions
+    are safe to share between threads), else loaded here; None if the check is off or the model is missing."""
+    if not settings.riding_check:
+        return None
+    if plate_reader is not None:
+        return plate_reader.vehicles
+    return OnnxDetector(settings.vehicle_model) if os.path.exists(settings.vehicle_model) else None
+
+
 def mask_plate(plate):
     """MP04ZD7116 -> MP04 •• 7116: enough to see that a plate was read, not enough to identify anyone."""
     if not plate:
@@ -279,7 +289,8 @@ def create_app(settings=None):
         detector, log, thresholds, plate_reader = build_components(settings)
         app.state.detector, app.state.log, app.state.thresholds = detector, log, thresholds
         app.state.plates = plate_reader is not None
-        app.state.jobs = JobManager(settings, detector, log, thresholds, plate_reader)
+        app.state.jobs = JobManager(settings, detector, log, thresholds, plate_reader,
+                                    vehicle_detector=build_vehicle_detector(settings, plate_reader))
         yield
         app.state.jobs.close()
         log.close()

@@ -9,6 +9,8 @@
     RIDESAFE_ADMIN_TOKEN        the author's secret key (32+ characters): sees and edits everything   (none)
     RIDESAFE_DEMO               public site: plates masked and plate crops hidden for visitors       true
     RIDESAFE_PLATES             read number plates (needs rapidocr_onnxruntime + the vehicle model)   true
+    RIDESAFE_RIDING_CHECK       only heads on a motorcycle can be violators (vehicle model; pedestrians and cyclists
+                                are labelled 'not riding' / 'cyclist')                                  true
     RIDESAFE_MAX_IMAGE_MB       upload limit for /detect                    10
     RIDESAFE_MAX_VIDEO_MB       upload limit for /jobs/video                100
     RIDESAFE_MAX_VIDEO_SECONDS  longest video accepted                      120
@@ -51,6 +53,7 @@ class Settings:
     admin_token: str = field(default_factory=lambda: _env("ADMIN_TOKEN", ""))
     demo: bool = field(default_factory=lambda: _flag("DEMO", True))
     plates: bool = field(default_factory=lambda: _flag("PLATES", True))
+    riding_check: bool = field(default_factory=lambda: _flag("RIDING_CHECK", True))
     max_image_mb: float = field(default_factory=lambda: float(_env("MAX_IMAGE_MB", 10)))
     max_video_mb: float = field(default_factory=lambda: float(_env("MAX_VIDEO_MB", 100)))
     max_video_seconds: float = field(default_factory=lambda: float(_env("MAX_VIDEO_SECONDS", 120)))

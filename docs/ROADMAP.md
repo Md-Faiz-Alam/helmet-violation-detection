@@ -41,6 +41,8 @@ What has been built, the decisions behind it, and what comes next. Numbers are e
   keyboard shortcuts, and a model card.
 - Continuous deployment to Azure (Container Apps + Static Web Apps) with OIDC sign-in, path filters and PR previews.
 - A public sample with faces and number plates blurred automatically.
+- A riding check in the live pipeline: only riders on a motorcycle can be violators, so pedestrians and cyclists are
+  not logged (test precision 78% → 86% with no violator lost).
 - Retired the original Streamlit demo; the React app and the API replace it.
 
 ## Next

@@ -57,7 +57,7 @@ helmet. Full evaluation, with the experiments, the threshold choice and the erro
 flowchart LR
     A[Video frame] --> B[Detect heads<br/>YOLO26s on ONNX Runtime]
     B --> C[Track riders<br/>ByteTrack]
-    C --> D[Vote per rider<br/>≥5 frames and ≥60% no-helmet]
+    C --> D[Vote per rider<br/>≥5 frames, ≥60% no-helmet,<br/>on a motorcycle]
     D -->|rider leaves| E[Log violation<br/>snapshot + SQLite]
     E --> F[Read plate<br/>RapidOCR, best effort]
     E --> G[Human review<br/>confirm or reject]
@@ -67,7 +67,8 @@ flowchart LR
    violators.
 2. **Track:** ByteTrack follows each head across frames, so one rider is one track, not hundreds of detections.
 3. **Decide once:** each frame is a vote; a rider is a violator with at least 5 no-helmet votes making up at least
-   60% of their votes, decided when they leave the frame. Split votes are marked *uncertain* for a reviewer.
+   60% of their votes, decided when they leave the frame, and only if their head sits on a motorcycle (a second
+   model checks, so pedestrians and cyclists are not logged). Split votes are marked *uncertain* for a reviewer.
 4. **Log and review:** the violation is saved the moment it is decided, with a snapshot and (when readable) the
    plate, and waits for a person to confirm or reject it.
 

@@ -70,6 +70,7 @@ Environment variables, read by [`settings.py`](../backend/ridesafe/settings.py).
 | `RIDESAFE_MODEL` / `RIDESAFE_VEHICLE_MODEL` | `models/best.onnx` / `models/vehicles.onnx` | ONNX models |
 | `RIDESAFE_THRESHOLDS` / `RIDESAFE_TRACKER` | `configs/thresholds.yaml` / `configs/bytetrack.yaml` | thresholds, tracker |
 | `RIDESAFE_PLATES` | `true` | read number plates (needs RapidOCR and the vehicle model) |
+| `RIDESAFE_RIDING_CHECK` | `true` | only heads on a motorcycle can be violators; others are labelled `not_riding` or `cyclist` ([report](../reports/video_riding_check.md)) |
 | `RIDESAFE_MAX_IMAGE_MB` / `RIDESAFE_MAX_VIDEO_MB` | `10` / `100` | upload size limits |
 | `RIDESAFE_MAX_VIDEO_SECONDS` | `120` | longest video accepted |
 | `RIDESAFE_MAX_QUEUED` | `10` | videos allowed to wait at once (more get 429) |

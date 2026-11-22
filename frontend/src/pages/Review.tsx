@@ -222,7 +222,7 @@ function Detail({
             <div className="bg-helmet" style={{ width: `${(1 - share) * 100}%` }} />
           </div>
           <p className="mt-2 text-xs leading-relaxed text-subtle">
-            Logged because at least 5 frames, and 60% of this rider's votes, saw no helmet.
+            Logged because at least 5 frames, and 60% of this rider's votes, saw no helmet, on a motorcycle.
           </p>
         </div>
 

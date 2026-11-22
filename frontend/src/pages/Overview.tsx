@@ -13,7 +13,7 @@ const steps = [
   { icon: Film, title: 'Video in', text: 'Upload, file or camera stream. Every 2nd frame is analysed on CPU.' },
   { icon: ScanFace, title: 'Detect heads', text: 'YOLO26s on ONNX Runtime finds every head: helmet or no helmet.' },
   { icon: Box, title: 'Track riders', text: 'ByteTrack links a head across frames, so each rider is one track.' },
-  { icon: Vote, title: 'Vote per rider', text: '≥5 no-helmet frames and ≥60% of votes: a violation. Split votes: uncertain.' },
+  { icon: Vote, title: 'Vote per rider', text: '≥5 no-helmet frames, ≥60% of votes and on a motorcycle: a violation. Pedestrians and cyclists are not logged.' },
   { icon: Database, title: 'Log + plate', text: 'Logged the moment it is decided, with a snapshot. Plate read by OCR.' },
   { icon: ClipboardCheck, title: 'Human review', text: 'A reviewer confirms or rejects. Nothing is enforced automatically.' },
 ]

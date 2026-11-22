@@ -57,7 +57,7 @@ export default function ModelCard() {
             caption="Tuned on validation for F2 (recall weighted 2×)"
             tone="accent"
           />
-          <Stat label="Decision rule" value="≥5 · 60%" caption="No-helmet frames and share of a rider's votes" />
+          <Stat label="Decision rule" value="≥5 · 60%" caption="No-helmet frames and share of a rider's votes, for heads on a motorcycle" />
         </Card>
 
         <div className="grid gap-5 xl:grid-cols-2">
