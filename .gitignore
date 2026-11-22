@@ -41,3 +41,6 @@ Thumbs.db
 
 # Video ground-truth review images (faces; regenerate with scripts/video_gt_draft.py)
 eval/video_gt/review_*/
+
+# Raw label proposals (scripts/video_gt_draft.py); only the reviewed <clip>.yaml files are kept
+eval/video_gt/*_draft.yaml

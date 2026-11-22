@@ -1,0 +1,116 @@
+# Ground truth for scripts/eval_video.py (validation clip: for tuning video settings). See annotation.
+video: city_road_rear_2.mp4
+frames: 468
+fps: 60.0
+resolution: [1920, 1080]
+source: https://www.pexels.com/video/34394876/ (Pexels license, by Aamir Somewhere)
+download: https://videos.pexels.com/video-files/34394876/14571064_1920_1080_60fps.mp4
+annotation:
+  method: 'tracker boxes from a high-recall run (1280 px input, low tracker thresholds) as starting keyframes, plus COCO person-on-two-wheeler
+    proposals for riders the tracker missed; identities checked by eye on frames with every draft box drawn: the tracker swapped
+    IDs between the white-shirt man and the person in yellow on the near bike (5 and 4 tracks merged), the ''MUBIN 5'' jersey
+    rider (4 tracks), the denim-jacket rider (2) and the far cream-uniform rider (5) merged; 3 ghost or sub-24 px entries
+    and 1 proposal that drifts between people removed'
+  annotated_by: Md Faiz Alam (keyframes drafted with scripts/video_gt_draft.py from a high-recall tracker run, plus COCO rider
+    proposals for riders the tracker missed; corrected by hand)
+  reviewed_by: 'Md Faiz Alam (project owner), 2026-11-22: all labels confirmed'
+  rules: 'rider = person on a two-wheeler (driver or pillion); bicycle riders are labelled with vehicle: bicycle and need
+    no helmet (never violators); helmet true/false/''unclear''; plate only if a person can read it; keyframes = head boxes
+    [x1, y1, x2, y2] in pixels of this resolution, keyed by 1-based frame number; riders whose head is never >= 24 px tall
+    are ignored by eval_video.py'
+riders:
+- id: R1
+  helmet: false
+  plate: null
+  description: white shirt, near motorcycle (MP04Z R7453), from behind
+  keyframes:
+    1: [305, 397, 366, 459]
+    33: [346, 399, 408, 464]
+    99: [294, 433, 320, 482]
+    129: [292, 453, 321, 505]
+    159: [300, 466, 333, 522]
+    173: [324, 481, 356, 535]
+    217: [356, 499, 392, 555]
+    235: [393, 506, 434, 559]
+    251: [380, 507, 410, 560]
+    353: [353, 519, 379, 572]
+    355: [354, 517, 380, 572]
+    367: [340, 516, 365, 569]
+    369: [339, 513, 365, 568]
+    383: [319, 488, 343, 541]
+- id: R2
+  helmet: false
+  plate: null
+  description: yellow shirt, left of the white-shirt man on the near motorcycle
+  keyframes:
+    46: [312, 438, 349, 482]
+    49: [310, 440, 346, 484]
+    61: [293, 442, 340, 491]
+    75: [277, 447, 322, 504]
+    109: [225, 469, 269, 516]
+    165: [231, 511, 278, 556]
+    263: [297, 534, 340, 578]
+    339: [310, 541, 356, 594]
+    407: [264, 501, 299, 550]
+    409: [262, 500, 299, 551]
+    451: [271, 492, 299, 532]
+- id: R3
+  helmet: false
+  plate: null
+  description: black 'MUBIN 5' jersey on a scooter, from behind
+  keyframes:
+    1: [606, 260, 701, 372]
+    5: [611, 262, 708, 377]
+    69: [710, 332, 783, 409]
+    165: [739, 394, 814, 474]
+    175: [733, 405, 809, 488]
+    213: [810, 446, 867, 511]
+    346: [905, 476, 950, 529]
+    361: [893, 478, 937, 531]
+    376: [873, 454, 933, 544]
+    381: [872, 446, 920, 511]
+    423: [837, 448, 886, 502]
+- id: R4
+  helmet: false
+  plate: null
+  description: striped shirt, backpack, motorcycle MP04Y K0621, from behind
+  keyframes:
+    153: [1850, 22, 1903, 246]
+    197: [1363, 166, 1490, 351]
+    319: [863, 401, 939, 491]
+- id: R5
+  helmet: true
+  plate: null
+  description: teal top, black helmet, motorcycle, from behind
+  keyframes:
+    173: [1724, 219, 1854, 345]
+    189: [1643, 247, 1774, 377]
+    321: [1340, 391, 1417, 475]
+- id: R6
+  helmet: false
+  plate: null
+  description: denim jacket, motorcycle at the right edge, from behind
+  keyframes:
+    357: [1876, 376, 1915, 437]
+    363: [1855, 377, 1895, 436]
+    371: [1820, 377, 1862, 434]
+    379: [1769, 362, 1830, 425]
+    381: [1761, 360, 1824, 425]
+    423: [1599, 378, 1654, 427]
+- id: R7
+  helmet: true
+  plate: null
+  description: cream uniform shirt, light helmet, far ahead (only 0-0.5 s is >= 24 px)
+  keyframes:
+    1: [431, 498, 456, 523]
+    16: [436, 499, 459, 525]
+    31: [441, 488, 469, 520]
+    307: [293, 547, 318, 570]
+    311: [285, 547, 311, 571]
+    321: [274, 546, 295, 567]
+    353: [215, 530, 233, 555]
+    361: [206, 536, 220, 556]
+    406: [120, 499, 135, 517]
+    421: [103, 489, 119, 507]
+    455: [67, 465, 84, 486]
+    461: [59, 462, 75, 482]

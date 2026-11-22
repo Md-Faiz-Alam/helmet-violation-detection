@@ -1,0 +1,207 @@
+# Ground truth for scripts/eval_video.py (validation clip: for tuning video settings). See annotation.
+video: city_road_rear_1.mp4
+frames: 578
+fps: 60.0
+resolution: [1920, 1080]
+source: https://www.pexels.com/video/34394881/ (Pexels license, by Aamir Somewhere)
+download: https://videos.pexels.com/video-files/34394881/14571054_1920_1080_60fps.mp4
+annotation:
+  method: 'tracker boxes from a high-recall run (1280 px input, low tracker thresholds) as starting keyframes, plus COCO person-on-two-wheeler
+    proposals for riders the tracker missed; every entry checked by eye on enlarged 1080p crops; split tracks merged where
+    keyframe positions continue each other in time (R74/R133/R185, R193/R154/A3, R49/R169 and others), a walking pedestrian
+    and a proposal box on a road sign removed. Uncertain: the two women at 9 s (R15/R16 here) may be the pink-dressed pillion
+    and companion seen at 3-5 s overtaking again; kept as separate riders. The scooter driver in front of R1 is never visible
+    (head hidden) and is not labelled; the child in front of R18 is under 24 px and not labelled; owner review: R9 was merged
+    with 3 frames of a different, helmeted scooter rider (a COCO proposal that jumped between riders): those frames split
+    off as R19'
+  annotated_by: Md Faiz Alam (keyframes drafted with scripts/video_gt_draft.py from a high-recall tracker run, plus COCO rider
+    proposals for riders the tracker missed; corrected by hand)
+  reviewed_by: 'Md Faiz Alam (project owner), 2026-11-22: all labels confirmed except R9, where one crop showed another rider
+    (fixed, see method)'
+  rules: 'rider = person on a two-wheeler (driver or pillion); bicycle riders are labelled with vehicle: bicycle and need
+    no helmet (never violators); helmet true/false/''unclear''; plate only if a person can read it; keyframes = head boxes
+    [x1, y1, x2, y2] in pixels of this resolution, keyed by 1-based frame number; riders whose head is never >= 24 px tall
+    are ignored by eval_video.py'
+riders:
+- id: R1
+  helmet: false
+  plate: null
+  description: red top, long hair, pillion on a scooter (MP04 QQ5097), from behind
+  keyframes:
+    1: [170, 335, 306, 492]
+    5: [220, 349, 359, 507]
+    49: [602, 489, 707, 619]
+    91: [766, 533, 838, 622]
+    106: [798, 538, 880, 624]
+    151: [919, 524, 966, 584]
+    166: [925, 501, 963, 561]
+    181: [966, 531, 993, 583]
+- id: R2
+  helmet: true
+  plate: null
+  description: white shirt, black helmet, close at the right edge
+  keyframes:
+    85: [1879, 379, 1920, 562]
+    87: [1874, 370, 1919, 568]
+    93: [1860, 382, 1920, 580]
+    137: [1815, 314, 1920, 553]
+    169: [1824, 275, 1919, 514]
+- id: R3
+  helmet: false
+  plate: null
+  description: light-green shirt on a scooter, from behind
+  keyframes:
+    111: [559, 347, 714, 502]
+    183: [1087, 539, 1143, 603]
+    315: [954, 563, 981, 599]
+    321: [951, 564, 975, 596]
+- id: R4
+  helmet: false
+  plate: null
+  description: striped shirt, scooter driver
+  keyframes:
+    175: [250, 547, 284, 609]
+    307: [454, 502, 504, 568]
+    321: [501, 497, 553, 566]
+- id: R5
+  helmet: false
+  plate: null
+  description: pink dress, sunglasses, pillion behind the striped-shirt driver
+  keyframes:
+    181: [311, 564, 340, 615]
+    183: [312, 564, 342, 615]
+    185: [337, 569, 363, 612]
+    193: [323, 563, 351, 611]
+    197: [340, 565, 369, 610]
+    207: [352, 565, 380, 608]
+    299: [392, 526, 431, 572]
+    311: [410, 519, 455, 573]
+    337: [488, 514, 529, 563]
+- id: R6
+  helmet: false
+  plate: null
+  description: white shirt on a scooter, passes a white car on the left
+  keyframes:
+    195: [226, 576, 257, 614]
+    221: [204, 573, 236, 613]
+    241: [175, 567, 209, 611]
+    269: [117, 553, 152, 598]
+    289: [68, 536, 103, 582]
+    309: [34, 513, 75, 565]
+    369: [73, 511, 120, 568]
+    417: [98, 491, 155, 558]
+    455: [1, 400, 82, 492]
+- id: R7
+  helmet: false
+  plate: null
+  description: blue shirt, backpack, motorcycle
+  keyframes:
+    201: [480, 581, 512, 622]
+    205: [479, 580, 512, 621]
+    225: [481, 578, 512, 617]
+- id: R8
+  helmet: true
+  plate: null
+  description: red helmet, red delivery jacket, close
+  keyframes:
+    253: [26, 61, 304, 374]
+    257: [150, 84, 470, 444]
+    295: [1261, 233, 1518, 505]
+- id: R9
+  helmet: false
+  plate: null
+  description: grey shirt, motorcycle with a yellow sack
+  keyframes:
+    271: [260, 577, 276, 601]
+    293: [210, 567, 233, 591]
+    299: [196, 557, 224, 587]
+    301: [195, 555, 223, 585]
+    401: [355, 556, 376, 589]
+    489: [518, 465, 543, 505]
+    561: [654, 436, 687, 482]
+- id: R10
+  helmet: true
+  plate: null
+  description: grey shirt, black helmet, scooter
+  keyframes:
+    466: [617, 497, 643, 526]
+    467: [621, 496, 644, 526]
+    471: [633, 494, 654, 521]
+    511: [615, 464, 639, 489]
+- id: R11
+  helmet: false
+  plate: null
+  description: light-blue shirt, motorcycle driver
+  keyframes:
+    471: [845, 485, 878, 527]
+    525: [971, 457, 1002, 507]
+    563: [1070, 448, 1104, 498]
+- id: R12
+  helmet: false
+  plate: null
+  description: long hair, backpack, pillion behind the light-blue-shirt driver
+  keyframes:
+    471: [836, 479, 857, 514]
+    511: [923, 458, 947, 499]
+    525: [952, 453, 980, 501]
+- id: R13
+  helmet: true
+  plate: null
+  description: yellow-green jacket, black helmet
+  keyframes:
+    489: [306, 457, 329, 482]
+    493: [311, 453, 336, 481]
+    531: [383, 441, 407, 468]
+- id: R14
+  helmet: true
+  plate: null
+  description: grey shirt, black helmet, scooter, right lane
+  keyframes:
+    501: [714, 472, 738, 506]
+    539: [822, 463, 846, 495]
+    577: [933, 452, 963, 490]
+- id: R15
+  helmet: false
+  plate: null
+  description: woman with dark hair on a scooter beside the white car
+  keyframes:
+    541: [1359, 468, 1395, 517]
+    543: [1366, 466, 1404, 518]
+    557: [1414, 473, 1450, 521]
+    569: [1430, 477, 1458, 515]
+    573: [1435, 477, 1464, 517]
+    577: [1442, 476, 1472, 517]
+- id: R16
+  helmet: false
+  plate: null
+  description: woman in pink with sunglasses beside the white car
+  keyframes:
+    541: [1389, 470, 1433, 527]
+    543: [1395, 471, 1440, 528]
+    559: [1451, 473, 1487, 523]
+- id: R17
+  helmet: true
+  plate: null
+  description: grey shirt, black helmet, scooter (missed by the tracker)
+  keyframes:
+    421: [507, 544, 530, 575]
+    436: [540, 524, 565, 555]
+    466: [532, 495, 554, 517]
+- id: R18
+  helmet: false
+  plate: null
+  description: maroon shirt, motorcycle driver with a child in front (missed by the tracker)
+  keyframes:
+    481: [660, 484, 682, 514]
+    496: [687, 475, 704, 502]
+    526: [658, 460, 679, 491]
+    541: [691, 454, 716, 491]
+    556: [725, 450, 748, 480]
+- id: R19
+  helmet: true
+  plate: null
+  description: white scooter, helmet, far (head about 24 px; missed by the tracker)
+  keyframes:
+    301: [279, 563, 301, 587]
+    316: [269, 554, 288, 577]
+    331: [270, 548, 291, 572]

@@ -83,6 +83,14 @@ The violation-class threshold is tuned **on the validation set** to maximize F2 
 
 The video benchmark has 4 **test** clips (reported only, never used for tuning) and 4 **validation** clips (for tuning video settings), all from Pexels ([manifest](../eval/video_gt/videos.yaml); `python scripts/download_eval_videos.py` fetches them). Every rider in the test clips was labelled in [`eval/video_gt/`](../eval/video_gt/) (helmet yes/no, readable plate, head boxes): drafted from the tracker's boxes, checked by hand on 1080p crops and reviewed by the author, who corrected entries that were not riders. [scripts/eval_video.py](../scripts/eval_video.py) scores each **rider**, not each frame.
 
+The validation clips (43 riders, 23 violators) were labelled the same way, with two additions, because a draft built
+only from the helmet model's tracks cannot contain the riders that model misses: the drafts came from a high-recall
+run (1280 px input, low tracker thresholds), and an independent COCO check (a person on a motorcycle or bicycle with no
+tracked head) proposed the riders the model never boxed, including 5 of the 9 riders at the railway crossing. Every
+entry was checked by eye and reviewed by the author. **Bicycle riders** are labelled (`vehicle: bicycle`) but need no
+helmet: they are never violators, and a violation logged on one counts as a false log. Baseline on validation with the
+production settings: 12 of 23 violators caught (52%), 12 of 16 logs correct (75%), 8 duplicate logs for one rider.
+
 | Test clip | Scene | Riders (no helmet) | Violation recall | Violation precision |
 |---|---|---|---|---|
 | Highway | daytime, riders facing the camera | 16 (12) | 8/12 | 8/8 |

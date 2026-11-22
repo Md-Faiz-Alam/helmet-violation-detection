@@ -123,6 +123,7 @@ python scripts/track_video.py --source path/to/video.mp4
 python scripts/track_video.py --source path/to/video.mp4 --show --vid-stride 2   # live window, every 2nd frame
 python scripts/track_video.py --source 0                                         # webcam
 python scripts/track_video.py --source rtsp://<camera-address>/stream            # IP camera
+python scripts/track_video.py --source path/to/video.mp4 --imgsz 1280             # larger input: finds smaller, far-away heads (slower)
 ```
 
 **How a violation is decided** ([`tracking.py`](../backend/ridesafe/tracking.py)):

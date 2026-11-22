@@ -86,6 +86,14 @@ def test_onnx_export_matches_pytorch(tmp_path):
     assert sorted(got[:, 5].tolist()) == sorted(ref[:, 5].tolist())  # same boxes per class
     assert box_iou(got[:, :4], ref[:, :4]).max(axis=1).min() > 0.99  # dynamic export: same input as PyTorch
 
+    # The dynamic export also runs at a larger input size (for far-away riders), in the same image pixels
+    big = OnnxDetector(str(onnx_path), imgsz=960)
+    assert big.imgsz == 960
+    got_big = big(img, conf=0.25)
+    assert len(got_big) and got_big[:, [0, 2]].max() <= img.shape[1] and got_big[:, [1, 3]].max() <= img.shape[0]
+    with pytest.raises(ValueError, match="multiple of"):
+        OnnxDetector(str(onnx_path), imgsz=1000)
+
 
 def test_api_with_real_models(tmp_path, monkeypatch):
     """The API on the real ONNX models (exported by CI before the smoke tests): /detect gives the same

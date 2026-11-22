@@ -1,0 +1,118 @@
+# Ground truth for scripts/eval_video.py (validation clip: for tuning video settings). See annotation.
+video: railway_crossing_dusk.mp4
+frames: 507
+fps: 59.94
+resolution: [1080, 1920]
+source: https://www.pexels.com/video/30983473/ (Pexels license, by Vikesh zen)
+download: https://videos.pexels.com/video-files/30983473/13244471_1080_1920_60fps.mp4
+annotation:
+  method: 'tracker boxes from a high-recall run (1280 px input, low tracker thresholds) as starting keyframes, plus COCO person-on-two-wheeler
+    proposals for riders the tracker missed (5 of the 9 riders, all without a helmet, seen from behind at dusk); identities
+    checked by eye and by keyframe continuity; 4 thin edge slivers and 1 partial person at the left edge removed. Uncertain:
+    R9 (dark hair, 6.5-7.8 s) may be R7 (1.0-2.8 s) seen again; kept separate. The pillion in the red striped sweater at the
+    far left is mostly outside the frame and is not labelled'
+  annotated_by: Md Faiz Alam (keyframes drafted with scripts/video_gt_draft.py from a high-recall tracker run, plus COCO rider
+    proposals for riders the tracker missed; corrected by hand)
+  reviewed_by: 'Md Faiz Alam (project owner), 2026-11-22: all labels confirmed'
+  rules: 'rider = person on a two-wheeler (driver or pillion); bicycle riders are labelled with vehicle: bicycle and need
+    no helmet (never violators); helmet true/false/''unclear''; plate only if a person can read it; keyframes = head boxes
+    [x1, y1, x2, y2] in pixels of this resolution, keyed by 1-based frame number; riders whose head is never >= 24 px tall
+    are ignored by eval_video.py'
+riders:
+- id: R1
+  helmet: true
+  plate: null
+  description: striped shirt, black helmet, closest rider, centre
+  keyframes:
+    1: [640, 1029, 833, 1234]
+    109: [658, 1022, 856, 1233]
+    255: [627, 1031, 814, 1236]
+- id: R2
+  helmet: true
+  plate: null
+  description: black helmet, left, behind the pillion in the red striped sweater
+  keyframes:
+    69: [129, 1076, 282, 1238]
+    227: [121, 1078, 305, 1256]
+    249: [100, 1075, 273, 1247]
+- id: R3
+  helmet: true
+  plate: null
+  description: black helmet, from behind, comes in from the right edge
+  keyframes:
+    333: [1028, 1137, 1078, 1248]
+    367: [998, 1125, 1069, 1245]
+    401: [940, 1120, 1035, 1241]
+    441: [972, 1080, 1074, 1225]
+    447: [965, 1081, 1069, 1227]
+    457: [951, 1081, 1055, 1227]
+- id: R4
+  helmet: true
+  plate: null
+  description: dark helmet, from behind, centre-right at the end
+  keyframes:
+    461: [867, 1143, 914, 1236]
+    469: [859, 1144, 905, 1233]
+    505: [818, 1142, 867, 1235]
+- id: R5
+  helmet: false
+  plate: null
+  description: checked shawl over the head, from behind (missed by the tracker)
+  keyframes:
+    61: [547, 1142, 634, 1261]
+    91: [553, 1140, 634, 1254]
+    136: [548, 1141, 634, 1263]
+    286: [486, 1146, 572, 1264]
+    301: [468, 1145, 555, 1265]
+    316: [449, 1145, 536, 1261]
+    331: [433, 1148, 519, 1265]
+    346: [413, 1148, 499, 1264]
+    391: [361, 1151, 448, 1262]
+    406: [342, 1151, 427, 1263]
+    421: [322, 1152, 410, 1262]
+    436: [303, 1151, 391, 1261]
+    466: [267, 1153, 350, 1261]
+    496: [229, 1153, 318, 1268]
+- id: R6
+  helmet: false
+  plate: null
+  description: pink cloth over the face, left of the shawl (missed by the tracker)
+  keyframes:
+    61: [465, 1168, 528, 1260]
+    91: [465, 1168, 524, 1245]
+- id: R7
+  helmet: false
+  plate: null
+  description: dark hair, right side, from behind (missed by the tracker)
+  keyframes:
+    61: [997, 1155, 1052, 1227]
+    91: [998, 1154, 1052, 1229]
+    136: [986, 1155, 1063, 1281]
+    166: [1005, 1114, 1080, 1227]
+- id: R8
+  helmet: false
+  plate: null
+  description: dark hair, 'YORK' jacket, from behind (missed by the tracker)
+  keyframes:
+    91: [873, 1145, 954, 1274]
+    136: [867, 1144, 970, 1306]
+    166: [881, 1147, 959, 1247]
+    241: [835, 1148, 937, 1294]
+    286: [930, 1159, 986, 1227]
+    391: [806, 1162, 859, 1223]
+    406: [786, 1157, 838, 1225]
+    421: [765, 1159, 817, 1224]
+    436: [734, 1157, 805, 1266]
+    451: [729, 1161, 780, 1227]
+    466: [713, 1162, 765, 1226]
+- id: R9
+  helmet: false
+  plate: null
+  description: dark hair, from behind, moves left (missed by the tracker)
+  keyframes:
+    391: [686, 1151, 757, 1235]
+    406: [647, 1147, 740, 1283]
+    421: [620, 1146, 721, 1281]
+    436: [617, 1150, 709, 1303]
+    451: [593, 1153, 691, 1296]
+    466: [575, 1147, 676, 1294]

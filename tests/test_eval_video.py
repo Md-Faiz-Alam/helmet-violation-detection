@@ -44,6 +44,16 @@ def test_violation_tp_fn_fp_and_plates():
     assert t["false_riders"] == 1  # track 4 is counted but matches no rider
 
 
+def test_cyclists_need_no_helmet():
+    gt = gt_with(("A", False, None, {10: HEAD}), ("B", False, None, {10: shifted(HEAD, 300)}))
+    gt["riders"][0]["vehicle"] = "bicycle"  # A rides a bicycle: never a violator
+    boxes = {1: {10: HEAD}, 2: {10: shifted(HEAD, 300)}}
+    tracks = {1: track(violation=True, label="Without Helmet"), 2: track(violation=True, label="Without Helmet")}
+    t = score_clip(gt, boxes, tracks)["totals"]
+    assert (t["violators"], t["tp"], t["fn"], t["fp"], t["fp_cyclist"], t["cyclists"]) == (1, 1, 0, 1, 1, 1)
+    assert t["riders_found"] == 2  # a cyclist still counts as a rider found
+
+
 def test_fragmented_rider_counts_extra_and_duplicate_logs():
     gt = gt_with(("A", False, None, {10: HEAD, 100: shifted(HEAD, 50)}))
     boxes = {1: {10: HEAD}, 2: {100: shifted(HEAD, 50)}}

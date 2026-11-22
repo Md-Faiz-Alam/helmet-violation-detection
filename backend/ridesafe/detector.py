@@ -58,7 +58,9 @@ def nms(boxes, scores, iou_thr):
 class OnnxDetector:
     """YOLO detector exported by Ultralytics (raw head output, NMS done here)."""
 
-    def __init__(self, path, threads=0, conf=0.25, iou=0.5, max_det=300):
+    def __init__(self, path, threads=0, conf=0.25, iou=0.5, max_det=300, imgsz=None):
+        """imgsz: input size (longest side) to run at; default the export size. Only dynamic exports accept
+        another size (a larger one helps with small, far-away objects, at a higher CPU cost)."""
         if not os.path.exists(path):
             raise FileNotFoundError(f"ONNX model not found: {path} (export it with scripts/export_onnx.py)")
         opts = ort.SessionOptions()
@@ -70,6 +72,12 @@ class OnnxDetector:
         self.dynamic = not isinstance(inp.shape[2], int)  # dynamic export: minimal (rectangular) padding
         self.imgsz = max(ast.literal_eval(meta["imgsz"])) if self.dynamic else int(inp.shape[2])
         self.stride = int(meta.get("stride", 32))
+        if imgsz and imgsz != self.imgsz:
+            if not self.dynamic:
+                raise ValueError(f"{path} has a fixed {self.imgsz} px input; export it with dynamic input to run at {imgsz}")
+            if imgsz % self.stride:
+                raise ValueError(f"imgsz must be a multiple of {self.stride}, got {imgsz}")
+            self.imgsz = int(imgsz)
         if meta.get("end2end", "False") == "True":
             raise ValueError("End-to-end (NMS-free) exports are not supported; export with end2end disabled")
         self.names = {int(k): v for k, v in ast.literal_eval(meta["names"]).items()}

@@ -1,0 +1,93 @@
+# Ground truth for scripts/eval_video.py (validation clip: for tuning video settings). See annotation.
+video: bangalore_junction.mp4
+frames: 166
+fps: 30.0
+resolution: [1920, 1080]
+source: https://www.pexels.com/video/27876781/ (Pexels license, by Yash Kanbargi)
+download: https://videos.pexels.com/video-files/27876781/12252615_1920_1080_30fps.mp4
+annotation:
+  method: 'tracker boxes from a high-recall run (1280 px input, low tracker thresholds) as starting keyframes, plus COCO person-on-two-wheeler
+    proposals for riders the tracker missed; every entry checked by eye on the overview frames and crops: 4 tracks of the
+    striped-shirt rider merged, 1 duplicate box on a helmeted rider''s face removed, 1 stall keeper and 6 standing people
+    proposed by COCO removed; the child pillion got 2 hand-drawn keyframes (61, 91) where the model detects nothing'
+  annotated_by: Md Faiz Alam (keyframes drafted with scripts/video_gt_draft.py from a high-recall tracker run, plus COCO rider
+    proposals for riders the tracker missed; corrected by hand)
+  reviewed_by: 'Md Faiz Alam (project owner), 2026-11-22: all labels confirmed; the cyclist marked vehicle: bicycle (no helmet
+    rule for bicycles)'
+  rules: 'rider = person on a two-wheeler (driver or pillion); bicycle riders are labelled with vehicle: bicycle and need
+    no helmet (never violators); helmet true/false/''unclear''; plate only if a person can read it; keyframes = head boxes
+    [x1, y1, x2, y2] in pixels of this resolution, keyed by 1-based frame number; riders whose head is never >= 24 px tall
+    are ignored by eval_video.py'
+riders:
+- id: R1
+  helmet: true
+  plate: null
+  description: brown jacket, black helmet, rider of the blue motorcycle
+  keyframes:
+    1: [1009, 300, 1118, 424]
+    83: [1252, 332, 1358, 452]
+    115: [1153, 311, 1265, 442]
+- id: R2
+  helmet: true
+  plate: null
+  description: blue helmet, backpack, pillion behind the brown-jacket rider
+  keyframes:
+    1: [842, 319, 937, 436]
+    83: [1117, 363, 1203, 454]
+- id: R3
+  helmet: false
+  plate: null
+  description: green T-shirt, backpack, on a bicycle, no helmet
+  vehicle: bicycle
+  keyframes:
+    1: [227, 223, 345, 348]
+    43: [721, 309, 801, 402]
+- id: R4
+  helmet: true
+  plate: null
+  description: striped shirt, blue helmet, right of frame
+  keyframes:
+    1: [1369, 371, 1440, 456]
+    7: [1376, 374, 1452, 464]
+    31: [1471, 393, 1539, 473]
+    65: [1565, 395, 1633, 471]
+    69: [1571, 399, 1639, 476]
+    89: [1538, 387, 1613, 469]
+    95: [1526, 385, 1597, 464]
+    105: [1511, 379, 1583, 461]
+    113: [1525, 377, 1601, 462]
+    115: [1531, 378, 1604, 459]
+    117: [1540, 376, 1614, 458]
+    127: [1600, 378, 1671, 456]
+- id: R5
+  helmet: false
+  plate: null
+  description: child on the tank of the red Royal Enfield, face mask, no helmet
+  keyframes:
+    39: [19, 365, 90, 512]
+    43: [90, 376, 160, 517]
+    61: [345, 395, 460, 505]
+    91: [600, 400, 730, 545]
+- id: R6
+  helmet: true
+  plate: null
+  description: black shirt, black helmet, rider of the red Royal Enfield
+  keyframes:
+    43: [15, 199, 85, 404]
+    105: [458, 183, 656, 401]
+    135: [675, 169, 906, 413]
+- id: R7
+  helmet: true
+  plate: null
+  description: lilac T-shirt, purple helmet, pillion on the red Royal Enfield
+  keyframes:
+    59: [11, 182, 58, 374]
+    113: [42, 100, 311, 371]
+    141: [304, 78, 643, 400]
+- id: R8
+  helmet: true
+  plate: null
+  description: blue shirt, grey helmet, on a red motorcycle at the left edge
+  keyframes:
+    159: [16, 279, 90, 422]
+    163: [38, 283, 103, 406]

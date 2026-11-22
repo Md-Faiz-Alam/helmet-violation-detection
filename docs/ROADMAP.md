@@ -48,7 +48,8 @@ What has been built, the decisions behind it, and what comes next. Numbers are e
 In order of expected impact:
 
 1. **Video recall.** More than half of violators are still missed, mostly far-away riders (heads under ~36 px) and
-   headwear still read as a helmet (headscarves, face scarves, woolly caps). Label the 4 validation clips first, then
+   headwear still read as a helmet (headscarves, face scarves, woolly caps). The 4 validation clips are now labelled
+   (baseline: 12 of 23 violators caught, 75% of logs correct); next,
    try a larger input size or tiled inference, retune the tracker thresholds, and add more headwear data.
 2. **"Is this person riding?"** All 6 false violations on the test clips are pedestrians or other non-riders. Measure a
    temporal head-on-vehicle check on the validation clips.

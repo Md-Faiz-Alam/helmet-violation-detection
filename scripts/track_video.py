@@ -86,14 +86,14 @@ def draw(frame, tracked, analyzer, stats_text):
     return frame
 
 
-def load_detector(path):
+def load_detector(path, imgsz=None):
     if not os.path.exists(path):
         raise SystemExit(f"Model not found: {path}. Export it first: python scripts/export_onnx.py --vehicles")
-    return OnnxDetector(path)
+    return OnnxDetector(path, imgsz=imgsz)
 
 
 def run(args):
-    detector = load_detector(args.weights)
+    detector = load_detector(args.weights, args.imgsz)
     thresholds = load_thresholds(args.thresholds) or {}
 
     cap = open_source(args.source)
@@ -256,6 +256,8 @@ if __name__ == "__main__":
     ap.add_argument("--weights", default="models/best.onnx", help="Helmet model (ONNX, from scripts/export_onnx.py)")
     ap.add_argument("--thresholds", default=DEFAULT_THRESHOLDS, help="Per-class thresholds YAML")
     ap.add_argument("--tracker", default="configs/bytetrack.yaml")
+    ap.add_argument("--imgsz", type=int, default=None,
+                    help="Detector input size (default: the export size, 640); larger finds smaller, far-away heads")
     ap.add_argument("--min-frames", type=int, default=5, help="No-helmet votes needed to confirm a violation")
     ap.add_argument("--min-ratio", type=float, default=0.6, help="Share of a track's votes that must be no-helmet")
     ap.add_argument("--uncertain-ratio", type=float, default=0.4,

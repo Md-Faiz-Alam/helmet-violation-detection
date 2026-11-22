@@ -10,6 +10,9 @@ matches a rider at a keyframe if it has a box within +-`frame_tol` source frames
 each track is assigned to the rider it matches most often. Boxes are rescaled when the run's
 video has another resolution than the ground truth (e.g. the 1080p copy of the same clip).
 
+Bicycle riders (`vehicle: bicycle`) need no helmet: they are never violators, and a violation logged on one
+counts as a false log.
+
 Metrics (riders whose head is never >= `min_head` px tall are ignored, as are helmet: 'unclear'
 riders for the violation metrics):
   riders        recall = riders with at least one *counted* track; extra tracks = duplicate counts;
@@ -79,7 +82,15 @@ def score_clip(gt, track_boxes, tracks, min_head=24, frame_tol=8, min_iou=0.3, s
         res["riders_found"] += bool(c_tids)
         res["extra_counts"] += max(0, len(c_tids) - 1)
         outcome = ""
-        if helmet is False:
+        if info[rid].get("vehicle") == "bicycle":  # no helmet rule for bicycles: never a violator
+            res["cyclists"] += 1
+            if v_tids:
+                res["fp"] += len(v_tids)
+                res["fp_cyclist"] += len(v_tids)
+                outcome = "FP (cyclist: no helmet required)"
+            else:
+                outcome = "not a violator (cyclist)"
+        elif helmet is False:
             res["violators"] += 1
             if v_tids:
                 res["tp"] += 1
@@ -185,7 +196,8 @@ Logged violations matching no rider: {out['fp_unmatched_tracks'] or 'none'}. Cou
         f"| **Violation precision** (logged violations that are real) | **{prec}** |",
         f"| Missed violators shown as Uncertain (flagged for review) | {t['fn_flagged_uncertain']} of {t['fn']} |",
         f"| Duplicate violation logs for one rider | {t['dup_logs']} |",
-        f"| False violation logs: on a helmeted rider / on no rider | {t['fp_helmeted']} / {t['fp_nobody']} |",
+        f"| False violation logs: on a helmeted rider / on a cyclist / on no rider | "
+        f"{t['fp_helmeted']} / {t['fp_cyclist']} / {t['fp_nobody']} |",
         f"| Plates (readable by a person, on detected violators): correct / wrong / not read | "
         f"{t['plates_correct']} / {t['plates_wrong']} / {t['plates_unread']} of {t['plates_readable']} |",
     ]
