@@ -29,6 +29,9 @@ yolov8*.pt
 yolo11*.pt
 yolo26*.pt
 
+# Exported ONNX models (regenerate with scripts/export_onnx.py; models/best.pt is the source)
+models/*.onnx
+
 # Streamlit local config
 .streamlit/
 

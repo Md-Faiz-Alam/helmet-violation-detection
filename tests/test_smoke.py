@@ -70,6 +70,23 @@ def test_track_video_end_to_end(tmp_path):
     log.close()
 
 
+def test_onnx_export_matches_pytorch(tmp_path):
+    """Export the real model, run the torch-free detector and compare with PyTorch on the sample photo."""
+    onnx_path = tmp_path / "best.onnx"
+    run_script("scripts/export_onnx.py", "--out", onnx_path)
+
+    from ultralytics import YOLO
+
+    from metrics import box_iou, predict_array
+    from onnx_detector import OnnxDetector
+
+    img = cv2.imread(str(SAMPLE))
+    ref = predict_array(YOLO(str(ROOT / "models" / "best.pt")), img, conf=0.25, device="cpu")
+    got = OnnxDetector(str(onnx_path))(img, conf=0.25)
+    assert sorted(got[:, 5].tolist()) == sorted(ref[:, 5].tolist())  # same boxes per class
+    assert box_iou(got[:, :4], ref[:, :4]).max(axis=1).min() > 0.9
+
+
 def test_streamlit_app_on_sample(monkeypatch):
     from streamlit.testing.v1 import AppTest
 

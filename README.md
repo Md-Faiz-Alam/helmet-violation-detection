@@ -77,7 +77,7 @@ The violation-class threshold is tuned **on the validation set** to maximize F2 
 - On video, people who are not riding (pedestrians standing among riders) can be logged as violators: all 6 false violations on the test clips are of this kind.
 - Night, rain and CCTV angles are still thinly covered.
 - Pedestrians without helmets can be flagged; there is no reliable "is riding" signal yet.
-- CPU inference takes about 110 ms per image at 640 px (Intel i7-7700K, PyTorch). An ONNX export is planned.
+- CPU inference takes about 83 ms per image at 640 px with ONNX Runtime (106 ms with PyTorch, Intel i7-7700K); see [reports/onnx_benchmark.md](reports/onnx_benchmark.md). INT8 quantization was tried and rejected (1.9x faster, but no-helmet recall 0.85 → 0.54).
 
 ---
 
@@ -101,6 +101,9 @@ helmet-violation-detection/
 │   ├── eval_association.py         # tests a head-on-vehicle filter on val/test -> reports/association.md
 │   ├── dataset_audit.py            # split composition (motorcycle/bicycle) + recall per vehicle type
 │   ├── benchmark.py                # model comparison: accuracy, size, CPU latency
+│   ├── export_onnx.py              # models/best.pt -> models/best.onnx (+ optional INT8)
+│   ├── onnx_detector.py            # torch-free detector on ONNX Runtime (numpy + OpenCV)
+│   ├── benchmark_onnx.py           # PyTorch vs ONNX Runtime: same accuracy? how much faster?
 │   ├── make_oversampled_split.py   # oversample violation images (class imbalance)
 │   ├── detect.py                   # inference on an image, folder, or video (frame by frame)
 │   ├── track_video.py              # video/webcam/RTSP: ByteTrack tracking + one decision per rider
@@ -109,7 +112,7 @@ helmet-violation-detection/
 │   ├── review_gt.py                # renders ground truth as review sheets (one row per rider)
 │   ├── tracking.py                 # per-track voting and violation rule (pure Python, unit-tested)
 │   ├── violation_log.py            # SQLite violation log (written as violations happen) + viewer
-│   ├── metrics.py                  # shared prediction-to-ground-truth matching
+│   ├── metrics.py                  # shared prediction-to-ground-truth matching + mAP50
 │   └── utils.py                    # thresholds + image listing helpers
 ├── notebook/
 │   └── experiments_kaggle.ipynb    # Kaggle GPU: downloads the data, trains and compares experiment configs
@@ -249,8 +252,8 @@ Outputs in `results/video/<name>_<timestamp>/`: `annotated.mp4`, `tracks.csv` (o
 pip install -r requirements-dev.txt
 ruff check .          # lint (rules in ruff.toml)
 pyright               # type check (settings in pyrightconfig.json; the same engine as VS Code's Pylance)
-pytest                # unit tests: tracking votes, plate rules, association, video scoring (~3 s, no model)
-pytest -m smoke       # end-to-end: the real model through detect.py, track_video.py and the app (~20 s on CPU)
+pytest                # unit tests: tracking votes, plate rules, association, video scoring, ONNX pre/post-processing (~5 s, no model)
+pytest -m smoke       # end-to-end: the real model through detect.py, track_video.py, the ONNX export and the app (~30 s on CPU)
 ```
 GitHub Actions ([.github/workflows/ci.yml](.github/workflows/ci.yml)) runs lint + unit tests on every push and pull request, then type checking and the smoke tests with CPU-only PyTorch.
 
@@ -271,6 +274,13 @@ python scripts/make_oversampled_split.py       # only needed for the *_oversampl
 python scripts/train.py --config configs/experiments/yolo26s_640_oversample.yaml --device 0
 python scripts/benchmark.py                    # -> reports/model_comparison.md
 ```
+
+### ONNX export (torch-free CPU inference)
+```bash
+python scripts/export_onnx.py                  # -> models/best.onnx (add --int8 for models/best.int8.onnx)
+python scripts/benchmark_onnx.py               # -> reports/onnx_benchmark.md (PyTorch vs ONNX FP32 / INT8)
+```
+[scripts/onnx_detector.py](scripts/onnx_detector.py) runs the exported model with only numpy, OpenCV and ONNX Runtime; it gives the same boxes as PyTorch and is 1.27x faster on the i7-7700K.
 - Runs are saved to `results/train/<experiment>/`. Add `--promote` to copy the best weights to `models/best.pt`, which the app uses.
 - No GPU? Run [notebook/experiments_kaggle.ipynb](notebook/experiments_kaggle.ipynb) on Kaggle (free GPU, 30 h/week). It trains all experiments in one background run and saves the results as the notebook's Output.
 - Experiment tracking: `pip install mlflow`, then set `MLFLOW_TRACKING_URI=sqlite:///mlflow.db`. Ultralytics logs every run to MLflow automatically; browse them with `mlflow ui --backend-store-uri sqlite:///mlflow.db`.
@@ -282,7 +292,7 @@ python scripts/benchmark.py                    # -> reports/model_comparison.md
 See [docs/PROJECT_REVIEW_AND_PLAN.md](docs/PROJECT_REVIEW_AND_PLAN.md).
 1. **ML rigor** ✅: threshold tuning, error analysis, dataset audit, model comparison (YOLOv8 / YOLO11 / YOLO26) and class rebalancing
 2. **Video system** ✅: rider tracking with ByteTrack ✅, per-rider violation logic ✅, head-to-vehicle association ✅ (evaluated; not worth it as a false-alarm filter on this data), number-plate OCR ✅ (best effort), video evaluation set ✅, headwear data ✅, SQLite violation log ✅
-3. **Deployment:** FastAPI + Docker, ONNX optimization with benchmarks, CI, live demo
+3. **Deployment:** ONNX export + benchmark ✅, FastAPI + Docker, React web app, automatic deploys to Azure, live demo
 
 ---
 

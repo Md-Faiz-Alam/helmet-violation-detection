@@ -25,9 +25,11 @@ jobs:
       - uses: actions/setup-python@v7
         with:
           python-version: "3.13"
-      # The unit tests cover pure-Python logic (tracking votes, plates, association, video scoring),
-      # so they need no model or PyTorch.
-      - run: pip install ruff==0.17.6 pytest==9.2.0 pyyaml==6.0.3
+      # The unit tests cover pure-Python logic (tracking votes, plates, association, video scoring,
+      # ONNX pre/post-processing, mAP), so they need no model or PyTorch.
+      - run: >-
+          pip install ruff==0.17.6 pytest==9.2.0 pyyaml==6.0.3 numpy==2.5.5 pillow==13.0.0
+          opencv-python-headless==5.1.0.95 onnxruntime==1.32.0
       - run: ruff check .
       - run: pytest
 

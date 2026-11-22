@@ -122,7 +122,7 @@ git push to main
 - One-time setup by the project owner: resource group, Container Apps environment, Static Web App, federated credential, GitHub repository variables/secrets, budget alert.
 
 ### Steps (in order)
-- [ ] **ONNX export + benchmark:** PyTorch vs ONNX Runtime on the i7-7700K (latency, CPU FPS), accuracy check that ONNX gives the same metrics; optional INT8
+- [x] **ONNX export + benchmark:** PyTorch vs ONNX Runtime on the i7-7700K (latency, CPU FPS), accuracy check that ONNX gives the same metrics; optional INT8. Done 2026-11-22 ([reports/onnx_benchmark.md](../reports/onnx_benchmark.md)): FP32 gives the same boxes as PyTorch and is 1.27x faster (83 vs 106 ms, 12 FPS) with a torch-free detector (`scripts/onnx_detector.py`); INT8 is 1.9x faster but loses no-helmet recall (0.85 → 0.54), so it is not used
 - [ ] **Package layout:** `backend/` (FastAPI app + `ridesafe` Python package with the detection, tracking, plates and log code), `frontend/` (React), `scripts/` stays for ML tooling (training, evaluation, mining)
 - [ ] **FastAPI service:** `POST /detect` (image → boxes JSON), `POST /jobs/video` + `GET /jobs/{id}` (async, progress, per-frame tracks JSON), `GET/PATCH /violations` (review status), `GET /health`, `GET /metrics`; request size limits, upload auto-delete, plate masking in demo mode; API tests
 - [ ] **Docker:** multi-stage image (ONNX exported in the build stage, runtime without PyTorch), `docker-compose` for local API + web app; image size before/after recorded

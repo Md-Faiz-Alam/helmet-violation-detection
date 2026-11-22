@@ -8,7 +8,6 @@ from pathlib import Path
 
 import cv2
 import numpy as np
-import torch
 import yaml
 from PIL import Image
 
@@ -59,7 +58,7 @@ def read_image(path):
 
 def as_numpy(x):
     """Torch tensor or numpy array -> numpy array (Ultralytics boxes can be either)."""
-    return x.cpu().numpy() if isinstance(x, torch.Tensor) else np.asarray(x)
+    return x.cpu().numpy() if hasattr(x, "cpu") else np.asarray(x)  # duck-typed: no torch import needed
 
 
 def first_result(results):
@@ -145,6 +144,32 @@ def counts_at(items, thresholds, n_classes, iou_thr=0.5):
             fp[c] += int((f & (pred[:, 5] == c)).sum()) if len(pred) else 0
             fn[c] += int((m & (item["gt"][:, 0] == c)).sum()) if len(item["gt"]) else 0
     return tp, fp, fn
+
+
+def average_precision(items, n_classes, iou_thr=0.5):
+    """Per-class AP at one IoU (COCO 101-point interpolation, as Ultralytics uses) from item["pred"]."""
+    aps = np.zeros(n_classes)
+    for c in range(n_classes):
+        confs, hits, n_gt = [], [], 0
+        for item in items:
+            gt = item["gt"][item["gt"][:, 0] == c] if len(item["gt"]) else item["gt"]
+            pred = item["pred"][item["pred"][:, 5] == c] if len(item["pred"]) else item["pred"]
+            n_gt += len(gt)
+            tp, _, _ = match_image(gt, pred, iou_thr)
+            confs.append(pred[:, 4])
+            hits.append(tp)
+        if n_gt == 0:
+            continue
+        conf, hit = np.concatenate(confs), np.concatenate(hits)
+        order = np.argsort(-conf, kind="stable")
+        tpc = np.cumsum(hit[order])
+        recall = tpc / n_gt
+        precision = tpc / np.arange(1, len(tpc) + 1)
+        mrec = np.concatenate([[0.0], recall, [1.0]])
+        mpre = np.flip(np.maximum.accumulate(np.flip(np.concatenate([[1.0], precision, [0.0]]))))
+        x = np.linspace(0, 1, 101)
+        aps[c] = np.trapezoid(np.interp(x, mrec, mpre), x)
+    return aps
 
 
 def prf(tp, fp, fn, beta=1.0):
