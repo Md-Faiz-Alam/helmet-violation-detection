@@ -1,7 +1,7 @@
 /**
  * Numbers shown on the site, copied from the generated reports (update them when a report changes):
  * reports/model_comparison.md, reports/model_comparison_headwear.md, reports/video_eval.md,
- * reports/onnx_benchmark.md, reports/runtime_parity.md and README.md (Results).
+ * reports/onnx_benchmark.md, reports/runtime_parity.md and docs/EVALUATION.md.
  */
 
 export const REPO_URL = 'https://github.com/Md-Faiz-Alam/helmet-violation-detection'
