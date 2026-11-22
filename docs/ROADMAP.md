@@ -49,9 +49,12 @@ In order of expected impact:
 
 1. **Video recall.** More than half of violators are still missed, mostly far-away riders (heads under ~36 px) and
    headwear still read as a helmet (headscarves, face scarves, woolly caps). The 4 validation clips are now labelled
-   (baseline: 12 of 23 violators caught, 75% of logs correct); next,
-   try a larger input size or tiled inference, retune the tracker thresholds, and add more headwear data.
-2. **"Is this person riding?"** All 6 false violations on the test clips are pedestrians or other non-riders. Measure a
+   (baseline: 12 of 23 violators caught, 75% of logs correct). A larger input (960 px) helped on validation but
+   not on the test clips, where it logged pedestrians in crowds ([report](../reports/video_input_size.md)), so the
+   riding check (item 2) comes first; then retry 960, add more headwear and back-view data, and add a crowded,
+   pedestrian-heavy clip to the validation set.
+2. **"Is this person riding?"** The next step. All 6 false violations on the test clips are pedestrians or other
+   non-riders, and they are what stops a larger input from helping. Measure a
    temporal head-on-vehicle check on the validation clips.
 3. **Plate reading.** A plate-specific recognizer (for example fast-plate-ocr), measured on the saved plate crops;
    stricter vehicle matching so a rider behind another bike does not get its plate.

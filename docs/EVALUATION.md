@@ -91,6 +91,11 @@ entry was checked by eye and reviewed by the author. **Bicycle riders** are labe
 helmet: they are never violators, and a violation logged on one counts as a false log. Baseline on validation with the
 production settings: 12 of 23 violators caught (52%), 12 of 16 logs correct (75%), 8 duplicate logs for one rider.
 
+**Larger input size (tried, not adopted).** On validation, a 960 px input raised violation recall from 52% to 70% and
+precision from 75% to 89%. On the test clips it did not hold: recall 45% → 42% and precision 78% → 40%, because the
+larger input also finds more pedestrians' heads in crowded scenes, and the system has no signal for who is riding.
+Production stays at 640; a riding check comes first. Details: [reports/video_input_size.md](../reports/video_input_size.md).
+
 | Test clip | Scene | Riders (no helmet) | Violation recall | Violation precision |
 |---|---|---|---|---|
 | Highway | daytime, riders facing the camera | 16 (12) | 8/12 | 8/8 |
