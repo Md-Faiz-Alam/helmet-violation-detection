@@ -5,8 +5,7 @@ _Last updated: 2026-11-21_
 **Goal:** turn this into a portfolio-grade **computer-vision / ML engineering** project for AI/ML roles.
 GenAI is covered by separate projects (RAG, VeiSight), so this one focuses on detection, evaluation, video and deployment.
 
-**Working title after Phase 2:** *RideSafe AI: Helmet Violation Detection System* (repo: `helmet-violation-detection`).
-Rename only once the project actually detects violations in video.
+**Name:** *RideSafe AI: Helmet Violation Detection* (repo: `helmet-violation-detection`, renamed on 2026-11-22 after the video system was finished).
 
 ---
 
@@ -64,7 +63,7 @@ Optional follow-ups:
 - [ ] Merge a second helmet dataset with more violators and night/CCTV images
 - [ ] Re-run the training notebook on Kaggle so its Step 6 test-set outputs are saved
 
-## Phase 2: Video system ⭐ in progress
+## Phase 2: Video system ✅ done
 
 - [x] Video/webcam/RTSP processing with ByteTrack, so each rider is counted once (`scripts/track_video.py`, ~9 FPS on CPU)
 - [x] Head-to-vehicle association (`scripts/association.py`, unit-tested) evaluated as a false-alarm filter (`scripts/eval_association.py` → `reports/association.md`): 16 of 19 remaining no-helmet false alarms on val already sit on/next to a bike, so the best filter removes 3 false alarms but costs real violators → **not used as a filter**. Kept for linking a violator to their vehicle (plate OCR)
@@ -84,11 +83,12 @@ Optional follow-ups:
   - Result on the highway clip: 720p 0 correct / 1 wrong / 4 unread; 1080p 1 correct / 1 wrong / 3 unread. The wrong one (`MP04ZD7116` → `MP02ZD7116`) happens even at 286 px and sharp, so the general OCR model is a limit, not only image quality
   - Split helmet/no-helmet votes (≥40% no-helmet) are now **Uncertain** instead of "With Helmet" (found on the 1080p run: a white-skullcap rider at 17 vs 16 votes)
 - [ ] Plate-specific recognizer (e.g. fast-plate-ocr, ONNX): measure on the same saved plate crops before switching. Needs care: it depends on opencv-python-headless, which breaks `--show` when installed next to opencv-python
-- [ ] Violation log (SQLite): timestamp, track ID, snapshot, plate text, confidence (today: `tracks.csv` + snapshots + `summary.json`)
+- [x] Violation log (SQLite, `scripts/violation_log.py`): every violation written the moment it is decided (time, track, votes, snapshot, plate filled in by a background thread, review status); WAL mode so an API can read during a stream. Long streams: memory freed per decided rider, tracker scans only open tracks, plate OCR off the main loop
+- [ ] Known plate issue: a rider whose bike is hidden behind a closer one can get the closer bike's plate
 
 ## Phase 3: Engineering & deployment ⭐
 
-- [ ] Package layout: `src/helmet_detection/`, `api/`, `app/`, `configs/`, `tests/`
+- [ ] Package layout: `src/ridesafe/`, `api/`, `app/`, `configs/`, `tests/`
 - [ ] FastAPI service: `/detect`, `/detect/video`, `/violations`, `/health`
 - [ ] ONNX (+ INT8) export with a speed benchmark table (PyTorch vs ONNX, CPU FPS)
 - [x] pytest (unit + `-m smoke` end-to-end) and GitHub Actions CI (ruff, unit tests, smoke tests on CPU); AGPL-3.0 LICENSE (required by Ultralytics)

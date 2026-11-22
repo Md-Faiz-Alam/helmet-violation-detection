@@ -1,6 +1,6 @@
-# 🪖 Helmet Detection with YOLO
+# 🪖 RideSafe AI: Helmet Violation Detection
 
-[![CI](https://github.com/Md-Faiz-Alam/helmet_detection/actions/workflows/ci.yml/badge.svg)](https://github.com/Md-Faiz-Alam/helmet_detection/actions/workflows/ci.yml)
+[![CI](https://github.com/Md-Faiz-Alam/helmet-violation-detection/actions/workflows/ci.yml/badge.svg)](https://github.com/Md-Faiz-Alam/helmet-violation-detection/actions/workflows/ci.yml)
 [![License: AGPL-3.0](https://img.shields.io/badge/license-AGPL--3.0-blue.svg)](LICENSE)
 
 Detects riders (motorcycles and bicycles) **with** and **without** helmets in images and videos using a fine-tuned **YOLO26s** model, chosen from 9 trained candidates and retrained with extra data for non-helmet headwear (caps, skullcaps, turbans, hijabs, face masks). It includes evaluation on images and on hand-labelled video, threshold tuning, error analysis and experiment tooling, ByteTrack video tracking with per-rider violation decisions, plus a **Streamlit** web app.
@@ -82,7 +82,7 @@ The violation-class threshold is tuned **on the validation set** to maximize F2 
 
 ## 📂 Project Structure
 ```
-Helmet_Detection/
+helmet-violation-detection/
 ├── app.py                          # Streamlit web app (upload / webcam / samples)
 ├── configs/
 │   ├── base.yaml                   # shared training recipe
@@ -107,6 +107,7 @@ Helmet_Detection/
 │   ├── video_gt_draft.py           # drafts video ground truth from a run, for a human to correct
 │   ├── review_gt.py                # renders ground truth as review sheets (one row per rider)
 │   ├── tracking.py                 # per-track voting and violation rule (pure Python, unit-tested)
+│   ├── violation_log.py            # SQLite violation log (written as violations happen) + viewer
 │   ├── metrics.py                  # shared prediction-to-ground-truth matching
 │   └── utils.py                    # helpers
 ├── notebook/
@@ -155,8 +156,8 @@ This creates a `Bike-Helmet-Detection-2/` folder. Move its `train/`, `valid/` an
 ## ⚙️ Setup
 
 ```bash
-git clone https://github.com/Md-Faiz-Alam/helmet_detection.git
-cd helmet_detection
+git clone https://github.com/Md-Faiz-Alam/helmet-violation-detection.git
+cd helmet-violation-detection
 python -m venv .venv
 .venv\Scripts\activate          # Windows
 source .venv/bin/activate       # Mac/Linux
@@ -230,7 +231,15 @@ Same clip at two resolutions, scored by `eval_video.py` on the 3 violators whose
 | Wrong | 1 | 1 |
 | Not read | 2 | 1 |
 
-**What this shows:** resolution matters (a plate became readable at 1080p), but it is not the only limit. The one wrong plate is `MP04ZD7116`, read as `MP02ZD7116` in 4 of 5 frames **even at 286 px wide and sharp**: the general-purpose OCR model misreads this plate's open-top "4". A plate-specific recognizer (for example fast-plate-ocr) is the next step; until then plate text is evidence for a human reviewer, not an automatic fine. Plates are personal data: keep outputs private and blur them in public demos.
+**What this shows:** resolution matters (a plate became readable at 1080p), but it is not the only limit. The one wrong plate is `MP04ZD7116`, read as `MP02ZD7116` in 4 of 5 frames **even at 286 px wide and sharp**: the general-purpose OCR model misreads this plate's open-top "4". A second limit: when a rider's own bike is hidden behind a closer one, the reader can attach the closer bike's plate (seen on this clip for a pillion-carrying rider behind another). A plate-specific recognizer (for example fast-plate-ocr) and stricter vehicle matching are the next steps; until then plate text is evidence for a human reviewer, not an automatic fine. Plates are personal data: keep outputs private and blur them in public demos.
+
+#### Violation log (SQLite) and long-running streams
+Every violation is written to **`results/violations.db`** the moment the rider is decided, not at the end of the run, so a crash or Ctrl+C loses nothing and another program (a dashboard, the planned API) can read the log while a camera stream is still running (SQLite WAL mode). Each run is a row in `runs` (source, model, settings, status, speed); each violator a row in `violations` (time, track, votes, snapshot, plate, `review_status` = pending / confirmed / rejected for a human reviewer).
+```bash
+python scripts/violation_log.py            # list runs
+python scripts/violation_log.py --run 1    # list one run's violations
+```
+For long streams, memory stays flat: data for riders who have been decided is freed, the tracker only checks undecided riders each frame, and plates are read in a **background thread**, so OCR never pauses the video (`--no-boxes` also skips the per-frame box file).
 
 Outputs in `results/video/<name>_<timestamp>/`: `annotated.mp4`, `tracks.csv` (one row per track, with plate), `violations/` (one snapshot per violator, captioned with its plate, plus the plate crop) and `summary.json` (counts + violation log). Speed on CPU (i7-7700K, `--vid-stride 2`): about **9 FPS** for tracking at 640 px, about 5.5 FPS with plate reading on the test clip (plates are read only for violators, about 2-3 s each, once they leave the frame); use `--vid-stride 2` or `3` for real-time on longer videos.
 
@@ -271,7 +280,7 @@ python scripts/benchmark.py                    # -> reports/model_comparison.md
 
 See [docs/PROJECT_REVIEW_AND_PLAN.md](docs/PROJECT_REVIEW_AND_PLAN.md).
 1. **ML rigor** ✅: threshold tuning, error analysis, dataset audit, model comparison (YOLOv8 / YOLO11 / YOLO26) and class rebalancing
-2. **Video system** (in progress): rider tracking with ByteTrack ✅, per-rider violation logic ✅, head-to-vehicle association ✅ (evaluated; not worth it as a false-alarm filter on this data), number-plate OCR ✅ (best effort, see below), violation log in SQLite ⏳
+2. **Video system** ✅: rider tracking with ByteTrack ✅, per-rider violation logic ✅, head-to-vehicle association ✅ (evaluated; not worth it as a false-alarm filter on this data), number-plate OCR ✅ (best effort), video evaluation set ✅, headwear data ✅, SQLite violation log ✅
 3. **Deployment:** FastAPI + Docker, ONNX optimization with benchmarks, CI, live demo
 
 ---
