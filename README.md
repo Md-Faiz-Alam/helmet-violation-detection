@@ -17,7 +17,7 @@ Model: **YOLO26s** (9.9M params), fine-tuned (AdamW, lr0=1e-3, imgsz=640, batch 
 |---|---|---|---|---|---|
 | Original test set | 63 | **0.937** | 0.889 | 0.852 | 0.917 / 0.881 / 0.869 |
 | **Headwear test set** (caps, turbans, hijabs, masks, rear views) | 635 | **0.810** | **0.781** | **0.763** | 0.320 / 0.310 / 0.285 |
-| **Video, per rider** (hand-labelled, 12 violators) | 14 s clip | n/a | n/a | **8/12** at 100% precision | 5/12 at 100% precision |
+| **Video, per rider** (4 hand-labelled test clips, 40 violators) | 54 riders | n/a | n/a | **18/40** at 75% precision (no helmeted rider flagged) | highway clip only: 5/12 → now 8/12 |
 
 \*At the operating threshold. "Previous model" = the YOLO26s + oversampling model before the headwear data.
 
@@ -66,14 +66,15 @@ The violation-class threshold is tuned **on the validation set** to maximize F2 
 
 ### What the analysis found
 
-- **Headwear was the main gap** and the extra data closed most of it on the held-out headwear test (no-helmet recall 0.28 → 0.76) and on video (5 → 8 of 12 violators caught, still no false violations).
+- **Headwear was the main gap** and the extra data closed most of it on the held-out headwear test (no-helmet recall 0.28 → 0.76) and on the highway clip (5 → 8 of 12 violators caught). Headscarves, face scarves and woolly caps are still missed on video (see the video benchmark below).
 - **With-helmet recall recovered:** oversampling alone had made the model miss more helmeted heads (22 missed on val); with the extra data it misses 8, and small helmeted heads went from 0.69 to 0.80 recall.
 - **Tiny heads remain hard for every model:** below 24 px tall, no-helmet recall is under 0.10 on the headwear test; far-away riders in video are the main remaining misses.
 - **A "head must be on a vehicle" filter was tested and rejected.** A COCO detector finds bicycles/motorcycles, and a head counts only if it sits where a rider's head would be (geometry measured on train, limits tuned on val). On val, 16 of the 19 no-helmet false alarms of the previous model already sat on or right next to a bike, so the filter removed 3 false alarms but also dropped real violators. The same association is reused to find a violator's vehicle for plate reading. [Association report](reports/association.md)
 - **Distribution shift between splits:** train is 79% motorcycle images, but val and test are about 45% bicycle. Recall is similar on both vehicle types. [Dataset audit](reports/dataset_audit.md)
 
 **Known limitations**
-- The original test set is small (63 images, 61 violators), and the video benchmark is one 14 s clip (12 violators), so differences of a few points are within noise.
+- The original test set is small (63 images, 61 violators), and the video benchmark is 4 short clips (40 violators), so differences of a few points are within noise.
+- On video, people who are not riding (pedestrians standing among riders) can be logged as violators: all 6 false violations on the test clips are of this kind.
 - Night, rain and CCTV angles are still thinly covered.
 - Pedestrians without helmets can be flagged; there is no reliable "is riding" signal yet.
 - CPU inference takes about 110 ms per image at 640 px (Intel i7-7700K, PyTorch). An ONNX export is planned.
