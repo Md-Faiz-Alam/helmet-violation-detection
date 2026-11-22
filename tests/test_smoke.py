@@ -84,7 +84,49 @@ def test_onnx_export_matches_pytorch(tmp_path):
     ref = predict_array(YOLO(str(ROOT / "models" / "best.pt")), img, conf=0.25, device="cpu")
     got = OnnxDetector(str(onnx_path))(img, conf=0.25)
     assert sorted(got[:, 5].tolist()) == sorted(ref[:, 5].tolist())  # same boxes per class
-    assert box_iou(got[:, :4], ref[:, :4]).max(axis=1).min() > 0.9
+    assert box_iou(got[:, :4], ref[:, :4]).max(axis=1).min() > 0.99  # dynamic export: same input as PyTorch
+
+
+def test_api_with_real_models(tmp_path, monkeypatch):
+    """The API on the real ONNX models (exported by CI before the smoke tests): /detect gives the same
+    boxes as PyTorch at the deployed thresholds, and a video job runs end to end with plate reading on."""
+    import time
+    from dataclasses import replace
+
+    from fastapi.testclient import TestClient
+    from ultralytics import YOLO
+
+    from metrics import predict_array
+    from ridesafe.api import create_app
+    from ridesafe.settings import Settings
+    from utils import load_thresholds
+
+    monkeypatch.chdir(ROOT)
+    settings = replace(Settings(), data_dir=tmp_path / "api", plates=True)
+    with TestClient(create_app(settings)) as c:
+        assert c.get("/model").json()["plates_enabled"]
+        body = c.post("/detect", files={"file": ("image1.jpg", SAMPLE.read_bytes(), "image/jpeg")}).json()
+        thr = load_thresholds() or {}
+        model = YOLO(str(ROOT / "models" / "best.pt"))
+        ref = [p for p in predict_array(model, str(SAMPLE), conf=0.1, device="cpu")
+               if p[4] >= thr[model.names[int(p[5])]]]
+        assert len(body["detections"]) == len(ref)
+        assert body["without_helmet"] == sum(int(p[5]) == 1 for p in ref) >= 1
+
+        clip = tmp_path / "clip.mp4"
+        make_clip(clip)
+        with open(clip, "rb") as f:
+            job_id = c.post("/jobs/video", files={"file": ("clip.mp4", f, "video/mp4")}).json()["job"]["id"]
+        job = {}
+        for _ in range(300):
+            job = c.get(f"/jobs/{job_id}").json()
+            if job["status"] in ("finished", "failed"):
+                break
+            time.sleep(0.5)
+        assert job["status"] == "finished", job["error"]
+        assert job["summary"]["riders"] >= 3
+        tracks = c.get(f"/jobs/{job_id}/tracks").json()
+        assert len(tracks["frames"]) == 15  # 30 frames, every 2nd
 
 
 def test_streamlit_app_on_sample(monkeypatch):

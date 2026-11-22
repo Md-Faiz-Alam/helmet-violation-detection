@@ -117,16 +117,41 @@ class ViolationLog:
             rows = self._db.execute("SELECT * FROM runs ORDER BY id DESC LIMIT ?", (limit,)).fetchall()
         return [dict(r) for r in rows]
 
-    def violations(self, run_id=None, limit=500):
-        sql, params = "SELECT * FROM violations", []
+    def violations(self, run_id=None, limit=500, run_ids=None, review_status=None):
+        """Violations, oldest first. Filter by one run, several runs (run_ids) and/or review status."""
+        sql, where, params = "SELECT * FROM violations", [], []
         if run_id is not None:
-            sql += " WHERE run_id=?"
+            where.append("run_id=?")
             params.append(run_id)
+        if run_ids is not None:
+            run_ids = list(run_ids)
+            if not run_ids:
+                return []
+            where.append(f"run_id IN ({','.join('?' * len(run_ids))})")
+            params.extend(run_ids)
+        if review_status is not None:
+            where.append("review_status=?")
+            params.append(review_status)
+        if where:
+            sql += " WHERE " + " AND ".join(where)
         sql += " ORDER BY id LIMIT ?"
         params.append(limit)
         with self._lock:
             rows = self._db.execute(sql, params).fetchall()
         return [dict(r) for r in rows]
+
+    def violation(self, violation_id):
+        """One violation as a dict, or None."""
+        with self._lock:
+            row = self._db.execute("SELECT * FROM violations WHERE id=?", (violation_id,)).fetchone()
+        return dict(row) if row else None
+
+    def delete_run(self, run_id):
+        """Remove a run and its violations (e.g. when an uploaded video expires)."""
+        with self._lock:
+            self._db.execute("DELETE FROM violations WHERE run_id=?", (run_id,))
+            self._db.execute("DELETE FROM runs WHERE id=?", (run_id,))
+            self._db.commit()
 
     def close(self):
         with self._lock:

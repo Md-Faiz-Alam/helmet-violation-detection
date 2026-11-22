@@ -25,7 +25,7 @@ def test_nms_removes_overlaps_keeps_separate_boxes():
 
 def make_detector():
     det = OnnxDetector.__new__(OnnxDetector)  # skip loading a model: test postprocess only
-    det.conf, det.iou, det.max_det = 0.25, 0.7, 300
+    det.conf, det.iou, det.max_det = 0.25, 0.5, 300
     return det
 
 

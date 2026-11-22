@@ -6,9 +6,9 @@ PyTorch 2.15.0+cpu (7 threads), ONNX Runtime 1.32.0
 
 | Backend | Size (MB) | Mean ms/img | p50 | p95 | CPU FPS | Speed-up | test mAP50 | test no-helmet P / R | headwear mAP50 | headwear no-helmet P / R | Same boxes as PyTorch (test / headwear) |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| PyTorch | 20.3 | 106.3 | 106.1 | 111.9 | 9.4 | 1.00x | 0.911 | 0.722 / 0.852 | 0.799 | 0.803 / 0.752 | 100.0% / 100.0% (IoU 1.000) |
-| ONNX Runtime FP32 | 38.2 | 83.4 | 78.4 | 102.2 | 12.0 | 1.27x | 0.912 | 0.722 / 0.852 | 0.793 | 0.797 / 0.752 | 100.0% / 100.0% (IoU 1.000) |
-| ONNX Runtime INT8 | 10.3 | 55.8 | 53.9 | 63.9 | 17.9 | 1.91x | 0.709 | 0.623 / 0.541 | 0.718 | 0.841 / 0.613 | 74.4% / 76.7% (IoU 0.868) |
+| PyTorch | 20.3 | 121.4 | 120.7 | 128.5 | 8.2 | 1.00x | 0.911 | 0.722 / 0.852 | 0.799 | 0.803 / 0.752 | 100.0% / 100.0% (IoU 1.000) |
+| ONNX Runtime FP32 | 38.8 | 96.9 | 95.8 | 104.3 | 10.3 | 1.25x | 0.911 | 0.722 / 0.852 | 0.799 | 0.803 / 0.752 | 100.0% / 100.0% (IoU 1.000) |
+| ONNX Runtime INT8 | 10.3 | 67.8 | 63.5 | 92.0 | 14.8 | 1.79x | 0.718 | 0.623 / 0.541 | 0.725 | 0.840 / 0.610 | 74.4% / 76.7% (IoU 0.868) |
 
 - **Latency:** 63 test images x 3 passes, decoded in memory, timed end to end (resize/letterbox,
   inference, NMS, boxes in image pixels), after 10 warm-up runs. FPS = 1000 / mean ms (one image at a time).
@@ -24,16 +24,16 @@ PyTorch 2.15.0+cpu (7 threads), ONNX Runtime 1.32.0
   PyTorch runs through Ultralytics `predict`, which letterboxes to the smallest stride-32 rectangle; the ONNX model
   has a fixed square input, which explains small box differences.
 - INT8: static quantization (QDQ, per-channel weights, MinMax calibration on 200 training images), `scripts/export_onnx.py --int8`.
-  The box/score decoding at the end of the detection head stays in FP32 (quantizing it put box coordinates and
-  class scores on one INT8 scale and rounded every score to zero).
 
 ## Decision (2026-11-22)
 
-- **Deploy ONNX Runtime FP32.** Same accuracy as PyTorch (identical boxes at the deployed thresholds, no-helmet
-  recall unchanged on both test sets), 1.27x faster on this CPU, and the API image needs no PyTorch.
-- **INT8 is not used.** It is 1.9x faster and 4x smaller, but no-helmet recall drops from 0.85 to 0.54 on the
-  test set and from 0.75 to 0.61 on the headwear test; missing violators is the error this project cares most
-  about. Quantization-aware training or a more careful choice of FP32 layers could recover it; revisit only if
-  the API is too slow on the cloud CPU.
-- Latency varies from run to run by roughly 10-25 % on a desktop with other programs open; compare rows of the
-  same run.
+- **Deploy ONNX Runtime FP32** (dynamic input size). Identical accuracy to PyTorch on both test sets (same
+  boxes at the deployed thresholds), 1.25x faster on these square 640 px test images and about 1.5x on wide
+  video frames (52 vs 79 ms on 1280x720 / 1920x1080 frames, see [runtime_parity.md](runtime_parity.md)),
+  and the API image needs no PyTorch.
+- **INT8 is not used.** It is about 1.8x faster and 4x smaller, but no-helmet recall drops from 0.85 to 0.54
+  on the test set and from 0.75 to 0.61 on the headwear test; missing violators is the error this project
+  cares most about. Quantization-aware training or a more careful choice of FP32 layers could recover it;
+  revisit only if the API is too slow on the cloud CPU.
+- Latency varies from run to run on a desktop (a run with other programs busy measured about twice these
+  times); compare rows of the same run.

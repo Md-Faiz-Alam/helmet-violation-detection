@@ -1,45 +1,38 @@
-"""Read the number plate of the vehicle a given rider is on (vehicle detector + OCR).
+"""Read the number plate of the vehicle a given rider is on (vehicle detector + OCR), without PyTorch.
 
-    reader = PlateReader()
+    reader = PlateReader("models/vehicles.onnx")
     crop, head = PlateReader.rider_region(frame, head_box)   # cut out the rider and their vehicle
     reading = reader.read(crop, head)                        # {"plate": "MP04ZD7116", "conf": 0.7, ...} or None
 
 Steps for one crop:
-  1. a COCO detector finds bicycles/motorcycles in the crop, and backend/ridesafe/association.py picks the
-     one this head is on (so a neighbour's plate is not read by mistake);
+  1. a COCO detector (ONNX, exported by scripts/export_onnx.py --vehicles) finds bicycles/motorcycles in
+     the crop, and ridesafe.association picks the one this head is on (so a neighbour's plate is not read);
   2. RapidOCR (PaddleOCR models on onnxruntime, CPU) reads text in that vehicle box, upscaled
      when small; if no vehicle is found, it reads the area below the head instead;
-  3. backend/ridesafe/plates.py joins two-line plates, fixes look-alike characters and validates the format.
+  3. ridesafe.plates joins two-line plates, fixes look-alike characters and validates the format.
 read_track() does this for a few frames of one rider and votes; a plate is only reported if at
 least `min_agree` frames read the same text (one lucky or unlucky frame is not evidence).
 """
 
-from pathlib import Path
-
 import cv2
 import numpy as np
-from ultralytics import YOLO
 
 from ridesafe.association import VEHICLE_CLASSES, AssociationRule, associate
+from ridesafe.detector import OnnxDetector
 from ridesafe.plates import plate_candidates, vote
-
-from metrics import predict_array
-
 
 # Looser vehicle confidence than the default rule: a partly cropped bike is still the rider's bike
 PLATE_RULE = AssociationRule(vehicle_conf=0.15)
 
 
 class PlateReader:
-    def __init__(self, vehicle_weights="yolo26s.pt", fmt="india", device=None, rule=PLATE_RULE, min_region_height=320):
-        from rapidocr_onnxruntime import RapidOCR  # imported here so the rest of the project works without it
+    def __init__(self, vehicle_model="models/vehicles.onnx", fmt="india", rule=PLATE_RULE, min_region_height=320):
+        from rapidocr_onnxruntime import RapidOCR  # optional dependency: everything else works without it
 
         self.ocr = RapidOCR()
-        # Resolve against the project root, so running from another folder doesn't trigger
-        # Ultralytics' automatic download of a second copy
-        root_copy = Path(__file__).resolve().parents[1] / vehicle_weights
-        self.vehicles = YOLO(str(root_copy) if not Path(vehicle_weights).exists() and root_copy.exists() else vehicle_weights)
-        self.fmt, self.device, self.rule = fmt, device, rule
+        self.vehicles = OnnxDetector(vehicle_model)
+        self.vehicle_ids = {i for i, n in self.vehicles.names.items() if n in VEHICLE_CLASSES}
+        self.fmt, self.rule = fmt, rule
         self.min_region_height = min_region_height
 
     @staticmethod
@@ -53,8 +46,8 @@ class PlateReader:
         return frame[Y1:Y2, X1:X2].copy(), (x1 - X1, y1 - Y1, x2 - X1, y2 - Y1)
 
     def _vehicle_for(self, crop, head):
-        pred = predict_array(self.vehicles, crop, conf=self.rule.vehicle_conf, device=self.device)
-        vehicles = [(tuple(p[:4]), float(p[4])) for p in pred if self.vehicles.names[int(p[5])] in VEHICLE_CLASSES]
+        pred = self.vehicles(crop, conf=self.rule.vehicle_conf)
+        vehicles = [(tuple(p[:4]), float(p[4])) for p in pred if int(p[5]) in self.vehicle_ids]
         j = associate([head], vehicles, self.rule)[0]
         return vehicles[j][0] if j >= 0 else None
 
@@ -91,9 +84,11 @@ class PlateReader:
 
         # Several plates in view: prefer the one horizontally closest to this rider's head
         hcx, hw = (hx1 + hx2) / 2, max(hx2 - hx1, 1)
+
         def score(c):
             bx1, _, bx2, _ = c[2]
             return c[1] - 0.1 * abs((bx1 + bx2) / 2 - hcx) / hw
+
         plate, conf, pbox = max(cands, key=score)
         return {"plate": plate, "conf": conf, "plate_box": pbox, "vehicle_box": vehicle}
 

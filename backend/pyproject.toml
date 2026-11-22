@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "ridesafe"
-description = "Helmet violation detection runtime: ONNX Runtime detector, per-rider decisions, plate rules, violation log"
+description = "Helmet violation detection runtime: ONNX Runtime detector, ByteTrack, per-rider decisions, plates, violation log, HTTP API"
 requires-python = ">=3.11"
 license = "AGPL-3.0-only"
 authors = [{ name = "Md Faiz Alam" }]
@@ -13,6 +13,7 @@ dependencies = [
     "numpy>=2.0",
     "onnxruntime>=1.20",
     "pyyaml>=6.0",
+    "lap>=0.5.12",           # ByteTrack's linear assignment
 ]
 
 [project.optional-dependencies]
@@ -20,6 +21,8 @@ dependencies = [
 # requirements.txt (RapidOCR needs it), the API image installs this headless build. Both provide `cv2`,
 # and installing both in one environment breaks it, so the package does not pick one by itself.
 headless = ["opencv-python-headless>=4.10"]
+api = ["fastapi>=0.120", "uvicorn>=0.38", "python-multipart>=0.0.20"]
+plates = ["rapidocr_onnxruntime>=1.2"]
 
 [tool.setuptools.dynamic]
 version = { attr = "ridesafe.__version__" }

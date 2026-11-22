@@ -7,7 +7,10 @@ opencv-python==5.1.0.95
 pillow==13.0.0
 numpy==2.5.5
 pyyaml==6.0.3
-lap==0.5.14             # ByteTrack matching (scripts/track_video.py)
+lap==0.5.14             # ByteTrack matching (backend/ridesafe/bytetrack.py)
 rapidocr_onnxruntime==1.2.3  # number-plate OCR (bundled PP-OCRv3 models; uses opencv-python, not headless)
 onnxruntime==1.32.0
+fastapi==0.165.0        # HTTP API (backend/ridesafe/api.py)
+uvicorn==0.54.0
+python-multipart==0.0.34
 -e ./backend            # the ridesafe runtime package (backend/), editable so scripts use the working copy

@@ -77,7 +77,7 @@ The violation-class threshold is tuned **on the validation set** to maximize F2 
 - On video, people who are not riding (pedestrians standing among riders) can be logged as violators: all 6 false violations on the test clips are of this kind.
 - Night, rain and CCTV angles are still thinly covered.
 - Pedestrians without helmets can be flagged; there is no reliable "is riding" signal yet.
-- CPU inference takes about 83 ms per image at 640 px with ONNX Runtime (106 ms with PyTorch, Intel i7-7700K); see [reports/onnx_benchmark.md](reports/onnx_benchmark.md). INT8 quantization was tried and rejected (1.9x faster, but no-helmet recall 0.85 → 0.54).
+- CPU inference takes about 97 ms per 640x640 image with ONNX Runtime (121 ms with PyTorch, Intel i7-7700K) and 52 ms per video frame (79 ms with PyTorch), with identical results; see [reports/onnx_benchmark.md](reports/onnx_benchmark.md). INT8 quantization was tried and rejected (1.8x faster, but no-helmet recall 0.85 → 0.54).
 
 ---
 
@@ -90,30 +90,35 @@ helmet-violation-detection/
 │   ├── experiments/*.yaml          # one file per experiment (YOLOv8 / YOLO11 / YOLO26, imgsz, oversampling)
 │   ├── thresholds.yaml             # tuned per-class confidence thresholds
 │   └── bytetrack.yaml              # tracker settings, aligned with the tuned thresholds
-├── backend/                        # the runtime, torch-free (FastAPI app to be added here)
+├── backend/                        # the runtime and HTTP API, torch-free (ONNX Runtime)
 │   ├── pyproject.toml              # `ridesafe` package (installed in editable mode by requirements.txt)
 │   ├── ridesafe/
+│   │   ├── api.py                  # FastAPI app: /detect, video jobs, review queue, health, metrics
+│   │   ├── jobs.py                 # async video jobs (worker thread, progress, expiry, sample job)
+│   │   ├── settings.py             # API settings from RIDESAFE_* environment variables
+│   │   ├── video.py                # the video pipeline: detect -> track -> decide -> log (CLI and API)
 │   │   ├── detector.py             # OnnxDetector: letterbox, ONNX Runtime, NMS (numpy + OpenCV)
+│   │   ├── bytetrack.py            # ByteTrack in numpy (checked against Ultralytics' tracker)
 │   │   ├── tracking.py             # per-track voting and violation rule (pure Python)
+│   │   ├── plate_reader.py         # violator's vehicle (COCO ONNX) -> OCR -> plate text (RapidOCR, CPU)
 │   │   ├── association.py          # head-to-vehicle geometry (which bike is this head on?)
 │   │   ├── plates.py               # plate format rules, look-alike fixes, voting
 │   │   ├── violation_log.py        # SQLite violation log (written as violations happen) + viewer
 │   │   └── thresholds.py           # per-class thresholds from configs/thresholds.yaml
-│   └── tests/                      # unit tests of the package (no model, no PyTorch)
+│   └── tests/                      # unit tests of the package and the API (no model, no PyTorch)
 ├── scripts/                        # ML tooling: training, evaluation, data, video runs (PyTorch via Ultralytics)
 │   ├── train.py                    # config-driven training
 │   ├── evaluate.py                 # per-class metrics + confusion matrix / PR curves
 │   ├── tune_thresholds.py          # per-class threshold tuning (val) + test report
 │   ├── error_analysis.py           # error breakdown, recall by object size, image gallery
-│   ├── plate_reader.py             # violator's vehicle -> OCR -> plate text (RapidOCR, CPU)
 │   ├── eval_association.py         # tests a head-on-vehicle filter on val/test -> reports/association.md
 │   ├── dataset_audit.py            # split composition (motorcycle/bicycle) + recall per vehicle type
 │   ├── benchmark.py                # model comparison: accuracy, size, CPU latency
-│   ├── export_onnx.py              # models/best.pt -> models/best.onnx (+ optional INT8)
+│   ├── export_onnx.py              # models/best.pt -> models/best.onnx (+ vehicle model, optional INT8)
 │   ├── benchmark_onnx.py           # PyTorch vs ONNX Runtime: same accuracy? how much faster?
 │   ├── make_oversampled_split.py   # oversample violation images (class imbalance)
 │   ├── detect.py                   # inference on an image, folder, or video (frame by frame)
-│   ├── track_video.py              # video/webcam/RTSP: ByteTrack tracking + one decision per rider
+│   ├── track_video.py              # video/webcam/RTSP CLI around backend/ridesafe/video.py
 │   ├── eval_video.py               # scores a video run per rider against hand-labelled ground truth
 │   ├── video_gt_draft.py           # drafts video ground truth from a run, for a human to correct
 │   ├── review_gt.py                # renders ground truth as review sheets (one row per rider)
@@ -185,6 +190,19 @@ streamlit run app.py
 - Tuned per-class thresholds (default) or one adjustable threshold
 - Counts riders with/without helmets and flags violations
 
+### HTTP API
+```bash
+python scripts/export_onnx.py --vehicles       # once: models/best.onnx + models/vehicles.onnx (plate reading)
+uvicorn ridesafe.api:app --port 8000           # interactive docs at http://localhost:8000/docs
+```
+The API runs on ONNX Runtime without PyTorch ([backend/ridesafe/api.py](backend/ridesafe/api.py)):
+- `POST /detect`: an image in, helmet / no-helmet boxes out (JSON, deployed thresholds).
+- `POST /jobs/video`: a video in, an async job out. Poll `GET /jobs/{id}` for progress; when it has finished, `GET /jobs/{id}/tracks` gives every processed frame's tracked heads (with their label at that moment) and the final decision per rider, so a browser can draw the boxes over the original video (`GET /jobs/{id}/video`, seekable).
+- `GET /violations`, `PATCH /violations/{id}` (`pending` / `confirmed` / `rejected`), `GET /violations/{id}/snapshot`: the review queue on the SQLite log.
+- `GET /health`, `GET /model`, `GET /metrics` (request counts and latencies, jobs, frames processed).
+
+Uploads are size- and length-limited and deleted with their results after an hour. With `RIDESAFE_DEMO=true` (public demo) visitors see and review only their own uploads (owner token returned by `POST /jobs/video`, sent back as `X-Owner-Token`), plates are partly masked (`MP04 •• 7116`) and plate crops are not served. All settings: [backend/ridesafe/settings.py](backend/ridesafe/settings.py).
+
 ### Inference on images
 ```bash
 python scripts/detect.py --source data/test/images --n_samples 5   # tuned thresholds from configs/thresholds.yaml
@@ -193,8 +211,9 @@ python scripts/detect.py --source samples/image1.jpg --conf 0.4    # one thresho
 Annotated images go to `results/detect/run_<timestamp>/`. For video, webcam or a camera stream use `track_video.py` (below).
 
 ### Video: track riders and flag violations
-`detect.py` labels every frame on its own, so one rider becomes hundreds of detections. `track_video.py` follows each head with **ByteTrack** and makes **one decision per rider**:
+`detect.py` labels every frame on its own, so one rider becomes hundreds of detections. `track_video.py` follows each head with **ByteTrack** and makes **one decision per rider**. It runs the same torch-free pipeline as the API ([backend/ridesafe/video.py](backend/ridesafe/video.py)), so export the models once first:
 ```bash
+python scripts/export_onnx.py --vehicles
 python scripts/track_video.py --source path/to/video.mp4
 python scripts/track_video.py --source path/to/video.mp4 --show --vid-stride 2   # live window, every 2nd frame (faster on CPU)
 python scripts/track_video.py --source 0                                         # webcam
@@ -250,15 +269,15 @@ python -m ridesafe.violation_log --run 1    # list one run's violations
 ```
 For long streams, memory stays flat: data for riders who have been decided is freed, the tracker only checks undecided riders each frame, and plates are read in a **background thread**, so OCR never pauses the video (`--no-boxes` also skips the per-frame box file).
 
-Outputs in `results/video/<name>_<timestamp>/`: `annotated.mp4`, `tracks.csv` (one row per track, with plate), `violations/` (one snapshot per violator, captioned with its plate, plus the plate crop) and `summary.json` (counts + violation log). Speed on CPU (i7-7700K, `--vid-stride 2`): about **9 FPS** for tracking at 640 px, about 5.5 FPS with plate reading on the test clip (plates are read only for violators, about 2-3 s each, once they leave the frame); use `--vid-stride 2` or `3` for real-time on longer videos.
+Outputs in `results/video/<name>_<timestamp>/`: `annotated.mp4`, `tracks.csv` (one row per track, with plate), `violations/` (one snapshot per violator, captioned with its plate, plus the plate crop) and `summary.json` (counts + violation log). Speed on CPU (i7-7700K, `--vid-stride 2`): about **16 FPS** for tracking at 640 px, about 9 FPS with plate reading on the test clip (the PyTorch pipeline it replaced made the same decisions at 6-8.5 FPS; see [reports/runtime_parity.md](reports/runtime_parity.md)) (plates are read only for violators, about 2-3 s each, once they leave the frame); use `--vid-stride 2` or `3` for real-time on longer videos.
 
 ### Tests and lint
 ```bash
 pip install -r requirements-dev.txt
 ruff check .          # lint (rules in ruff.toml)
 pyright               # type check (settings in pyrightconfig.json; the same engine as VS Code's Pylance)
-pytest                # unit tests: tracking votes, plate rules, association, video scoring, ONNX pre/post-processing (~5 s, no model)
-pytest -m smoke       # end-to-end: the real model through detect.py, track_video.py, the ONNX export and the app (~30 s on CPU)
+pytest                # unit tests: tracking votes, ByteTrack, plates, association, ONNX pre/post-processing, the API, video scoring (~6 s, no model)
+pytest -m smoke       # end-to-end with the real models: detect.py, track_video.py, the ONNX export, the API, ByteTrack vs Ultralytics (~40 s on CPU; run scripts/export_onnx.py --vehicles first)
 ```
 GitHub Actions ([.github/workflows/ci.yml](.github/workflows/ci.yml)) runs lint + unit tests on every push and pull request, then type checking and the smoke tests with CPU-only PyTorch.
 
@@ -285,7 +304,7 @@ python scripts/benchmark.py                    # -> reports/model_comparison.md
 python scripts/export_onnx.py                  # -> models/best.onnx (add --int8 for models/best.int8.onnx)
 python scripts/benchmark_onnx.py               # -> reports/onnx_benchmark.md (PyTorch vs ONNX FP32 / INT8)
 ```
-[backend/ridesafe/detector.py](backend/ridesafe/detector.py) runs the exported model with only numpy, OpenCV and ONNX Runtime; it gives the same boxes as PyTorch and is 1.27x faster on the i7-7700K.
+[backend/ridesafe/detector.py](backend/ridesafe/detector.py) runs the exported model with only numpy, OpenCV and ONNX Runtime; it gives the same boxes as PyTorch and is 1.25x faster on 640x640 images and about 1.5x on wide video frames (i7-7700K).
 - Runs are saved to `results/train/<experiment>/`. Add `--promote` to copy the best weights to `models/best.pt`, which the app uses.
 - No GPU? Run [notebook/experiments_kaggle.ipynb](notebook/experiments_kaggle.ipynb) on Kaggle (free GPU, 30 h/week). It trains all experiments in one background run and saves the results as the notebook's Output.
 - Experiment tracking: `pip install mlflow`, then set `MLFLOW_TRACKING_URI=sqlite:///mlflow.db`. Ultralytics logs every run to MLflow automatically; browse them with `mlflow ui --backend-store-uri sqlite:///mlflow.db`.
@@ -297,7 +316,7 @@ python scripts/benchmark_onnx.py               # -> reports/onnx_benchmark.md (P
 See [docs/PROJECT_REVIEW_AND_PLAN.md](docs/PROJECT_REVIEW_AND_PLAN.md).
 1. **ML rigor** ✅: threshold tuning, error analysis, dataset audit, model comparison (YOLOv8 / YOLO11 / YOLO26) and class rebalancing
 2. **Video system** ✅: rider tracking with ByteTrack ✅, per-rider violation logic ✅, head-to-vehicle association ✅ (evaluated; not worth it as a false-alarm filter on this data), number-plate OCR ✅ (best effort), video evaluation set ✅, headwear data ✅, SQLite violation log ✅
-3. **Deployment:** ONNX export + benchmark ✅, FastAPI + Docker, React web app, automatic deploys to Azure, live demo
+3. **Deployment:** ONNX export + benchmark ✅, torch-free package ✅, FastAPI service ✅, Docker, React web app, automatic deploys to Azure, live demo
 
 ---
 
@@ -307,7 +326,7 @@ See [docs/PROJECT_REVIEW_AND_PLAN.md](docs/PROJECT_REVIEW_AND_PLAN.md).
 - [Roboflow Universe](https://universe.roboflow.com/), the Bike Helmet Detection dataset by Syed Salman Reza (Public Domain)
 - [Helmet, Rider, ANPR Detection v12](https://universe.roboflow.com/onlytusik/helmet-rider-anpr-detection/dataset/12) by OnlyTusik (CC BY 4.0), extra training data for non-helmet headwear (cleaned and de-duplicated against our data by `scripts/mine_headwear.py`)
 - [Pexels](https://www.pexels.com/video/34395449/), test video by Aamir Somewhere (Pexels license; not redistributed here, downloaded by URL)
-- [RapidOCR](https://github.com/RapidAI/RapidOCR) (PaddleOCR models on ONNX Runtime) and [ByteTrack](https://github.com/ifzhang/ByteTrack) via Ultralytics
+- [RapidOCR](https://github.com/RapidAI/RapidOCR) (PaddleOCR models on ONNX Runtime) and [ByteTrack](https://github.com/ifzhang/ByteTrack) (ported to numpy from the Ultralytics implementation, AGPL-3.0)
 
 ---
 

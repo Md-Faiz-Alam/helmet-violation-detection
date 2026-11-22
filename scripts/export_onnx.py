@@ -1,10 +1,12 @@
 """Export the trained model to ONNX for torch-free CPU inference (and optionally an INT8 copy).
 
     python scripts/export_onnx.py                       # models/best.pt -> models/best.onnx
+    python scripts/export_onnx.py --vehicles            # also yolo26s.pt (COCO) -> models/vehicles.onnx (plates)
     python scripts/export_onnx.py --int8                # also models/best.int8.onnx (static INT8)
 
-The export has a fixed 1x3x640x640 input and the raw detection head output (NMS is done by
-backend/ridesafe/detector.py). INT8 uses static quantization (QDQ, per-channel weights) calibrated on
+The export has a dynamic input size (long side 640, short side padded only to a multiple of 32, as
+Ultralytics does for PyTorch, which gives identical boxes and is faster on wide video frames) and the raw
+detection head output (NMS is done by backend/ridesafe/detector.py). INT8 uses static quantization (QDQ, per-channel weights) calibrated on
 training images, so no validation or test image is seen. Compare the files with scripts/benchmark_onnx.py.
 """
 
@@ -23,9 +25,11 @@ def export_fp32(weights, out, imgsz):
 
     # Ultralytics writes the export next to the weights; export from a temporary copy so an existing
     # models/best.onnx is never overwritten when --out points elsewhere
+    if not os.path.exists(weights):
+        YOLO(weights)  # a released model name such as yolo26s.pt: Ultralytics downloads it to the working folder
     with tempfile.TemporaryDirectory() as tmp:
         src = shutil.copy(weights, os.path.join(tmp, "model.pt"))
-        path = YOLO(src).export(format="onnx", imgsz=imgsz, simplify=True, dynamic=False, verbose=False)
+        path = YOLO(src).export(format="onnx", imgsz=imgsz, simplify=True, dynamic=True, verbose=False)
         shutil.move(path, out)
     print(f"FP32 model: {out} ({os.path.getsize(out) / 1e6:.1f} MB)")
 
@@ -74,7 +78,7 @@ def export_int8(fp32, out, calib_dir, n):
             return {det.input_name: det.preprocess(img)[0]}
 
     prep = out + ".prep.onnx"
-    quant_pre_process(fp32, prep)
+    quant_pre_process(fp32, prep, skip_symbolic_shape=True)  # the dynamic input defeats symbolic inference
     quantize_static(prep, out, Reader(calibration_images(calib_dir, n)), quant_format=QuantFormat.QDQ,
                     per_channel=True, activation_type=QuantType.QUInt8, weight_type=QuantType.QInt8,
                     calibrate_method=CalibrationMethod.MinMax, nodes_to_exclude=head_decode_nodes(prep))
@@ -85,6 +89,8 @@ def export_int8(fp32, out, calib_dir, n):
 def main(args):
     os.makedirs(os.path.dirname(args.out) or ".", exist_ok=True)
     export_fp32(args.weights, args.out, args.imgsz)
+    if args.vehicles:  # the plate reader's vehicle finder (Ultralytics downloads yolo26s.pt if it is missing)
+        export_fp32(args.vehicle_weights, args.vehicle_out, args.imgsz)
     if args.int8:
         export_int8(args.out, args.out.replace(".onnx", ".int8.onnx"), args.calib_dir, args.calib_images)
 
@@ -94,6 +100,9 @@ if __name__ == "__main__":
     ap.add_argument("--weights", default="models/best.pt")
     ap.add_argument("--out", default="models/best.onnx")
     ap.add_argument("--imgsz", type=int, default=640)
+    ap.add_argument("--vehicles", action="store_true", help="Also export the COCO vehicle detector for plate reading")
+    ap.add_argument("--vehicle-weights", default="yolo26s.pt")
+    ap.add_argument("--vehicle-out", default="models/vehicles.onnx")
     ap.add_argument("--int8", action="store_true", help="Also write a static INT8 model (<out>.int8.onnx)")
     ap.add_argument("--calib-dir", default="data/train/images", help="Calibration images (training split)")
     ap.add_argument("--calib-images", type=int, default=200)

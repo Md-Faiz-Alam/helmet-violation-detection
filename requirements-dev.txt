@@ -2,6 +2,7 @@
 pytest==9.2.0
 ruff==0.17.6
 pyright==1.1.414
+httpx==0.28.1     # FastAPI test client
 onnx==1.23.2      # ONNX export (scripts/export_onnx.py)
 onnxslim==0.1.99  # graph simplification during export
 ipykernel==7.4.0  # run the notebooks in VS Code/Jupyter with this venv
