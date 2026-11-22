@@ -193,6 +193,35 @@ def test_one_client_token_owns_all_its_uploads(make_client, tmp_path):
     assert bad.status_code == 422
 
 
+def test_a_failing_job_is_reported_and_the_worker_keeps_going(make_client, tmp_path):
+    c = make_client()
+    real_call = FakeDetector.__call__
+    calls = {"n": 0}
+
+    def flaky(self, img, conf=None, agnostic=False):
+        calls["n"] += 1
+        if calls["n"] == 5:
+            raise RuntimeError("model crashed")
+        return real_call(self, img, conf, agnostic)
+
+    clip = write_video(tmp_path / "clip.mp4")
+    try:
+        FakeDetector.__call__ = flaky
+        failed = wait_finished(c, upload_video(c, clip).json()["job"]["id"])
+    finally:
+        FakeDetector.__call__ = real_call
+    assert failed["status"] == "failed" and "model crashed" in failed["error"]
+    run = next(r for r in c.app.state.log.runs() if r["source"] == f"job:{failed['id']}")
+    assert run["status"] == "failed"
+    assert wait_finished(c, upload_video(c, clip).json()["job"]["id"])["status"] == "finished"
+
+
+def test_too_many_waiting_videos_are_refused(make_client, tmp_path):
+    c = make_client(max_queued=0)
+    r = upload_video(c, write_video(tmp_path / "clip.mp4"))
+    assert r.status_code == 429
+
+
 def test_uploads_expire_with_their_violations(make_client, tmp_path):
     c = make_client(upload_ttl_s=60)
     job_id = upload_video(c, write_video(tmp_path / "clip.mp4")).json()["job"]["id"]

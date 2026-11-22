@@ -111,7 +111,7 @@ export default function ModelCard() {
             <table className="w-full min-w-[640px] text-sm">
               <thead>
                 <tr className="border-b border-border text-left text-xs text-muted">
-                  {['Model', 'Params (M)', 'CPU ms', 'val mAP50', 'val recall', 'test mAP50', 'test recall'].map((h, i) => (
+                  {['Model', 'Params (M)', 'PyTorch CPU ms', 'val mAP50', 'val recall', 'test mAP50', 'test recall'].map((h, i) => (
                     <th key={h} className={cn('px-5 py-2 font-medium', i > 0 && 'text-right')}>
                       {h}
                     </th>

@@ -11,6 +11,7 @@
     RIDESAFE_MAX_IMAGE_MB       upload limit for /detect                    10
     RIDESAFE_MAX_VIDEO_MB       upload limit for /jobs/video                100
     RIDESAFE_MAX_VIDEO_SECONDS  longest video accepted                      120
+    RIDESAFE_MAX_QUEUED         videos allowed to wait at once (more: 429) 10
     RIDESAFE_VID_STRIDE         analyse every Nth video frame               2
     RIDESAFE_UPLOAD_TTL_S       delete uploads and their results after this many seconds (0 = keep)   3600
     RIDESAFE_CORS_ORIGINS       comma-separated origins allowed to call the API                       *
@@ -42,6 +43,7 @@ class Settings:
     max_image_mb: float = field(default_factory=lambda: float(_env("MAX_IMAGE_MB", 10)))
     max_video_mb: float = field(default_factory=lambda: float(_env("MAX_VIDEO_MB", 100)))
     max_video_seconds: float = field(default_factory=lambda: float(_env("MAX_VIDEO_SECONDS", 120)))
+    max_queued: int = field(default_factory=lambda: int(_env("MAX_QUEUED", 10)))
     vid_stride: int = field(default_factory=lambda: int(_env("VID_STRIDE", 2)))
     upload_ttl_s: int = field(default_factory=lambda: int(_env("UPLOAD_TTL_S", 3600)))
     cors_origins: tuple = field(default_factory=lambda: tuple(

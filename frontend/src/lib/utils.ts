@@ -20,6 +20,13 @@ export function formatSeconds(seconds: number | null | undefined) {
   return seconds == null ? '–' : `${seconds.toFixed(1)} s`
 }
 
+/** "every frame", "every 2nd frame", "every 3rd frame" */
+export function everyNth(n: number) {
+  if (n <= 1) return 'every frame'
+  const suffix = n % 100 >= 11 && n % 100 <= 13 ? 'th' : ({ 1: 'st', 2: 'nd', 3: 'rd' } as Record<number, string>)[n % 10] ?? 'th'
+  return `every ${n}${suffix} frame`
+}
+
 export function formatPercent(value: number, digits = 0) {
   return `${(value * 100).toFixed(digits)}%`
 }

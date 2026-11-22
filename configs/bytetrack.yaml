@@ -1,7 +1,7 @@
 # ByteTrack settings for the video pipeline (backend/ridesafe/bytetrack.py; same format as Ultralytics trackers).
-# Changed from the Ultralytics defaults so tracking agrees with configs/thresholds.yaml:
-# our tuned "Without Helmet" threshold is 0.16, so a head detected at 0.16-0.25 must still be
-# able to start and keep a track (the defaults would drop it below 0.25).
+# Lower than the Ultralytics defaults so that weak detections still start and keep tracks; the tuned
+# per-class thresholds (configs/thresholds.yaml) are applied afterwards, when a track's frames vote.
+# (Set when the "Without Helmet" threshold was 0.16; kept as is: the video benchmark was measured with it.)
 tracker_type: bytetrack
 track_high_thresh: 0.16 # first-stage matching (default 0.25)
 track_low_thresh: 0.1   # second-stage matching keeps weak detections attached to existing tracks

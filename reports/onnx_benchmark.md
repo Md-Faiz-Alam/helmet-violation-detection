@@ -21,8 +21,8 @@ PyTorch 2.15.0+cpu (7 threads), ONNX Runtime 1.32.0
 - **Same boxes as PyTorch:** share of PyTorch detections (deployed thresholds) that the backend also finds with
   the same class at IoU >= 0.5; IoU = mean IoU of those boxes on the test split.
 - The ONNX backends run `backend/ridesafe/detector.py` (numpy + OpenCV + onnxruntime, no PyTorch), the same code as the API.
-  PyTorch runs through Ultralytics `predict`, which letterboxes to the smallest stride-32 rectangle; the ONNX model
-  has a fixed square input, which explains small box differences.
+  Both letterbox the same way (long side 640, short side padded to a multiple of 32: the ONNX model has a dynamic
+  input size), so they get identical inputs.
 - INT8: static quantization (QDQ, per-channel weights, MinMax calibration on 200 training images), `scripts/export_onnx.py --int8`.
 
 ## Decision (2026-11-22)

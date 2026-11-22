@@ -32,12 +32,16 @@ export function JobViewer({ job, tracks, violations }: { job: Job; tracks: Track
     if (!v) return
     let handle = 0
     let stopped = false
+    let shown = -1
     const hasRvfc = 'requestVideoFrameCallback' in v
     const loop = (_now: number, meta?: VideoFrameCallbackMetadata) => {
       if (stopped) return
       const t = meta?.mediaTime ?? v.currentTime
-      render(t)
-      setTime(t)
+      render(t) // the canvas follows every frame; React state (clock, playhead) only 10 times a second
+      if (Math.abs(t - shown) >= 0.1) {
+        shown = t
+        setTime(t)
+      }
       handle = hasRvfc ? v.requestVideoFrameCallback(loop) : requestAnimationFrame((n) => loop(n))
     }
     handle = hasRvfc ? v.requestVideoFrameCallback(loop) : requestAnimationFrame((n) => loop(n))

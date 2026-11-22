@@ -8,7 +8,7 @@ import { buttonVariants } from '@/components/ui/button-variants'
 import { Badge, Card, ErrorNotice, Progress, Skeleton } from '@/components/ui/primitives'
 import { api, type Job } from '@/lib/api'
 import { useJob, useTracks } from '@/lib/hooks'
-import { cn, formatTime } from '@/lib/utils'
+import { cn, everyNth, formatTime } from '@/lib/utils'
 
 const STAGES = [
   { key: 'queued', label: 'Queued' },
@@ -80,8 +80,7 @@ export default function JobPage() {
           </div>
         }
       >
-        {j.width}×{j.height} · {j.fps.toFixed(0)} FPS · {formatTime(j.duration_s)} · every {j.vid_stride === 1 ? '' : `${j.vid_stride}nd `}frame
-        analysed{j.processing_fps ? ` at ${j.processing_fps.toFixed(1)} FPS on CPU` : ''}
+        {j.width}×{j.height} · {j.fps.toFixed(0)} FPS · {formatTime(j.duration_s)} · {everyNth(j.vid_stride)} analysed{j.processing_fps ? ` at ${j.processing_fps.toFixed(1)} FPS on CPU` : ''}
         {j.expires_in_s != null && ` · deleted in ${Math.ceil(j.expires_in_s / 60)} min`}
       </PageHeader>
 

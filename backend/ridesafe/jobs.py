@@ -209,6 +209,8 @@ class JobManager:
             try:
                 self.run(job)
             except Exception as e:  # report it on the job, keep the worker alive
+                if job.get("run_id"):
+                    self.log.finish_run(job["run_id"], status="failed", summary={"error": str(e)})
                 self._update(job, status="failed", stage="failed", error=f"{type(e).__name__}: {e}")
 
     def run(self, job):
@@ -225,6 +227,7 @@ class JobManager:
         cap = cv2.VideoCapture(str(d / job["video"]))
         frames, frame_idx, done = [], 0, 0
         t0 = last_save = time.perf_counter()
+        completed = False
         try:
             while True:
                 ok, frame = cap.read()
@@ -243,8 +246,11 @@ class JobManager:
                                  processing_fps=round(done / (last_save - t0), 2))
                 if self._stop.is_set():
                     raise RuntimeError("server shutting down")
+            completed = True
         finally:
             cap.release()
+            if not completed and analyzer.plate_pool:  # failed: drop pending plate reads instead of leaving the thread busy
+                analyzer.plate_pool.shutdown(wait=False, cancel_futures=True)
         self.frames_processed += done
         self._update(job, stage="reading plates" if self.plate_reader else "finishing",
                      progress={"frames_done": frame_idx, "frames_total": job["frames_total"]})

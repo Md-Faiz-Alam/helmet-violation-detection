@@ -38,6 +38,7 @@ import cv2
 import numpy as np
 from fastapi import Depends, FastAPI, File, Header, HTTPException, Query, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel, Field
 
@@ -290,13 +291,19 @@ def create_app(settings=None):
         data = await file.read(int(settings.max_image_mb * CHUNK) + 1)
         if len(data) > settings.max_image_mb * CHUNK:
             raise HTTPException(413, f"File too large (limit {settings.max_image_mb:g} MB)")
-        img = cv2.imdecode(np.frombuffer(data, np.uint8), cv2.IMREAD_COLOR)
-        if img is None:
-            raise HTTPException(422, "Could not decode the image")
         det, thr = request.app.state.detector, request.app.state.thresholds
-        t0 = time.perf_counter()
-        boxes = det(img, conf=min(thr.values(), default=0.25))
-        latency = (time.perf_counter() - t0) * 1000
+
+        def decode_and_detect():  # CPU-bound: runs in a worker thread so other requests are not blocked
+            img = cv2.imdecode(np.frombuffer(data, np.uint8), cv2.IMREAD_COLOR)
+            if img is None:
+                return None, None, 0.0
+            t0 = time.perf_counter()
+            boxes = det(img, conf=min(thr.values(), default=0.25))
+            return img, boxes, (time.perf_counter() - t0) * 1000
+
+        img, boxes, latency = await run_in_threadpool(decode_and_detect)
+        if img is None or boxes is None:
+            raise HTTPException(422, "Could not decode the image")
         out = []
         for x1, y1, x2, y2, conf, c in boxes.tolist():
             name = det.names[int(c)]
@@ -316,6 +323,8 @@ def create_app(settings=None):
         ext = Path(file.filename or "").suffix.lower()
         if ext not in VIDEO_EXTS:
             raise HTTPException(415, f"Unsupported video type: {ext or 'unknown'}")
+        if manager.counts().get("queued", 0) >= settings.max_queued:
+            raise HTTPException(429, "Too many videos are waiting; try again in a few minutes")
         tmp_dir = Path(tempfile.mkdtemp(dir=settings.data_dir))
         path = tmp_dir / f"upload{ext}"
         try:
@@ -326,7 +335,7 @@ def create_app(settings=None):
                     if size > limit:
                         raise HTTPException(413, f"File too large (limit {settings.max_video_mb:g} MB)")
                     f.write(chunk)
-            meta = probe_video(path)
+            meta = await run_in_threadpool(probe_video, path)
             if meta is None:
                 raise HTTPException(422, "Could not read the video (unsupported codec or corrupt file)")
             fps, frames, _, _ = meta

@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button'
 import { Badge, Card, CardHeader, EmptyState, ErrorNotice, Progress, Stat } from '@/components/ui/primitives'
 import { api, uploadVideo, type Job } from '@/lib/api'
 import { useJobs, useModelInfo } from '@/lib/hooks'
-import { cn, formatBytes, formatTime, relativeTime } from '@/lib/utils'
+import { cn, everyNth, formatBytes, formatTime, relativeTime } from '@/lib/utils'
 
 const IMAGE_ACCEPT = 'image/jpeg,image/png,image/webp,image/bmp'
 const VIDEO_ACCEPT = 'video/mp4,video/quicktime,video/x-msvideo,video/x-matroska,video/webm,.mp4,.mov,.avi,.mkv,.webm,.m4v'
@@ -192,7 +192,7 @@ function VideoAnalyzer() {
             title="Drop a traffic video, or click to choose"
             hint={
               limits
-                ? `MP4, MOV, AVI, MKV or WebM · up to ${limits.max_video_mb} MB and ${formatTime(limits.max_video_seconds)} min · every ${limits.vid_stride === 1 ? '' : `${limits.vid_stride}nd `}frame analysed`
+                ? `MP4, MOV, AVI, MKV or WebM · up to ${limits.max_video_mb} MB and ${formatTime(limits.max_video_seconds)} min · ${everyNth(limits.vid_stride)} analysed`
                 : 'MP4, MOV, AVI, MKV or WebM'
             }
           />

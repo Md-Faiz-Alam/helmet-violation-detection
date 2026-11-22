@@ -10,8 +10,11 @@ const LABEL_COLOR: Record<TrackLabel, string> = {
   pending: '--pending',
 }
 
-function cssVar(name: string) {
-  return getComputedStyle(document.documentElement).getPropertyValue(name).trim() || '#888'
+/** The four status colours from the current theme (read once per draw, not once per box). */
+function themeColors(): Record<TrackLabel, string> {
+  const style = getComputedStyle(document.documentElement)
+  const read = (label: TrackLabel) => style.getPropertyValue(LABEL_COLOR[label]).trim() || '#888888'
+  return { violation: read('violation'), uncertain: read('uncertain'), helmet: read('helmet'), pending: read('pending') }
 }
 
 /** Index of the processed frame shown at time t (the last one at or before t), or -1. */
@@ -47,6 +50,7 @@ export function drawBoxes(
   if (!ctx) return
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
   ctx.clearRect(0, 0, w, h)
+  const colors = themeColors()
   const sx = w / tracks.width
   const sy = h / tracks.height
   const font = Math.max(10, Math.min(13, w / 70))
@@ -55,7 +59,7 @@ export function drawBoxes(
   for (const [id, x1, y1, x2, y2, live] of boxes) {
     const label = mode === 'final' ? (tracks.tracks[id]?.label ?? live) : live
     if (onlyFlagged && label !== 'violation' && label !== 'uncertain') continue
-    const color = cssVar(LABEL_COLOR[label])
+    const color = colors[label]
     const x = x1 * sx
     const y = y1 * sy
     const bw = (x2 - x1) * sx

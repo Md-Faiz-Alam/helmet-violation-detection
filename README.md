@@ -3,7 +3,7 @@
 [![CI](https://github.com/Md-Faiz-Alam/helmet-violation-detection/actions/workflows/ci.yml/badge.svg)](https://github.com/Md-Faiz-Alam/helmet-violation-detection/actions/workflows/ci.yml)
 [![License: AGPL-3.0](https://img.shields.io/badge/license-AGPL--3.0-blue.svg)](LICENSE)
 
-Detects riders (motorcycles and bicycles) **with** and **without** helmets in images and videos using a fine-tuned **YOLO26s** model, chosen from 9 trained candidates and retrained with extra data for non-helmet headwear (caps, skullcaps, turbans, hijabs, face masks). It includes evaluation on images and on hand-labelled video, threshold tuning, error analysis and experiment tooling, ByteTrack video tracking with per-rider violation decisions, plus a **Streamlit** web app.
+Detects riders (motorcycles and bicycles) **with** and **without** helmets in images and videos using a fine-tuned **YOLO26s** model, chosen from 9 trained candidates and retrained with extra data for non-helmet headwear (caps, skullcaps, turbans, hijabs, face masks). It includes evaluation on images and on hand-labelled video, threshold tuning, error analysis and experiment tooling, and ByteTrack video tracking with per-rider violation decisions. It ships as a product: a **FastAPI** service on **ONNX Runtime** (no PyTorch, 620 MB Docker image), and a **React** web app for analysing photos and videos and for reviewing every logged violation.
 
 > The class that matters most for road safety is **Without Helmet** (the violation). Missing a violator costs more than a false alarm, so this project optimizes and reports that class separately.
 
@@ -62,7 +62,7 @@ The violation-class threshold is tuned **on the validation set** to maximize F2 
 | YOLO26s + oversampling, tuned | 0.16 | 0.855 | 0.869 | 8 of 61 | 9 |
 | **Current (+ headwear data), tuned** | **0.31** | 0.722 | 0.852 | 9 of 61 | 20 |
 
-**Why false alarms went up on this test set:** the current model now (correctly) calls caps and bandanas "no helmet". Most of its extra "false alarms" are people in caps or bandanas, and riders at motorbike rallies, whose heads were never labelled in the original dataset, which only labels some heads per image. A few (about 6-8 on val) are real errors: **pedestrians** without helmets, since the model has no notion of who is riding. On real traffic video, every logged violation was correct (8/8). Details: [reports/thresholds.md](reports/thresholds.md), [error analysis](reports/error_analysis.md).
+**Why false alarms went up on this test set:** the current model now (correctly) calls caps and bandanas "no helmet". Most of its extra "false alarms" are people in caps or bandanas, and riders at motorbike rallies, whose heads were never labelled in the original dataset, which only labels some heads per image. A few (about 6-8 on val) are real errors: **pedestrians** without helmets, since the model has no notion of who is riding. On the highway test clip every logged violation was correct (8/8); across all 4 test clips 18 of 24 logs were real, and all 6 false logs were people who were not riding. Details: [reports/thresholds.md](reports/thresholds.md), [error analysis](reports/error_analysis.md).
 
 ### What the analysis found
 
