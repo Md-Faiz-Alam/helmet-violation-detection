@@ -19,7 +19,7 @@
 #
 # Settings (environment variables), defaults in brackets:
 #   GH_REPO [Md-Faiz-Alam/helmet-violation-detection]   LOCATION [centralindia]   SWA_LOCATION [first allowed of
-#   eastasia, westeurope, eastus2, centralus, westus2]   RG [ridesafe-rg]   BUDGET_USD [10]   ROTATE_KEYS [0]
+#   eastasia, westeurope, eastus2, centralus, westus2]   RG [ridesafe-rg]   BUDGET_USD [10; 0 = no budget, e.g. when one already covers the billing account]   ROTATE_KEYS [0]
 
 set -euo pipefail
 
@@ -169,6 +169,9 @@ fi
 info "Contributor on $RG only"
 
 # ------------------------------------------------------------------------------------------------ budget
+if [ "$BUDGET_USD" = "0" ]; then
+  step "Budget alert: skipped (BUDGET_USD=0)"
+else
 step "Budget alert: \$$BUDGET_USD per month on the subscription (50%, 80%, 100% and forecast 100%)"
 EMAIL=$(az account show --query user.name -o tsv)
 EMAIL="${EMAIL##*#}"  # personal Microsoft accounts sign in as live.com#name@example.com
@@ -190,6 +193,7 @@ if az rest --method put -o none --body "$BUDGET_BODY" \
 else
   info "Could not create the budget here ($(head -c 300 /tmp/budget.err))."
   info "Create it in the portal instead: Cost Management > Budgets > Add, \$$BUDGET_USD monthly, alerts at 50/80/100%."
+fi
 fi
 
 # ------------------------------------------------------------------------------------------------ summary
