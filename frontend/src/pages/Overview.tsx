@@ -123,6 +123,7 @@ function HeroDemo({ job }: { job: Job }) {
           Open
         </Link>
       </div>
+      {job.credit && <div className="border-t border-border px-4 py-2 text-[11px] text-muted">{job.credit}</div>}
     </Card>
   )
 }

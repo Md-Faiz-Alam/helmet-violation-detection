@@ -57,7 +57,7 @@ jobs:
           fi
           files=$(git diff --name-only "$base" "$GITHUB_SHA")
           echo "$files"
-          grep -qE '^(backend/|models/|configs/|scripts/export_onnx\.py$)' <<<"$files" && api=true || api=false
+          grep -qE '^(backend/|models/|configs/|samples/demo_job/|scripts/export_onnx\.py$)' <<<"$files" && api=true || api=false
           grep -qE '^frontend/' <<<"$files" && web=true || web=false
           echo "api=$api" | tee -a "$GITHUB_OUTPUT"; echo "web=$web" | tee -a "$GITHUB_OUTPUT"
 

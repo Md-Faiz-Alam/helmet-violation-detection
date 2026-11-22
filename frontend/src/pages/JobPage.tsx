@@ -82,6 +82,7 @@ export default function JobPage() {
       >
         {j.width}×{j.height} · {j.fps.toFixed(0)} FPS · {formatTime(j.duration_s)} · {everyNth(j.vid_stride)} analysed{j.processing_fps ? ` at ${j.processing_fps.toFixed(1)} FPS on CPU` : ''}
         {j.expires_in_s != null && ` · deleted in ${Math.ceil(j.expires_in_s / 60)} min`}
+        {j.credit && <span className="mt-1 block text-xs">{j.credit}</span>}
       </PageHeader>
 
       {j.status === 'failed' && <ErrorNotice error={j.error ?? 'The analysis failed.'} />}

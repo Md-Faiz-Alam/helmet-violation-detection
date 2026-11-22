@@ -8,7 +8,8 @@ A job lives in <data_dir>/jobs/<id>/:
     violations/       one snapshot per violator (+ plate crop), as written by ridesafe.video
 Violations go to the shared SQLite log (one run per job). Jobs older than the upload TTL are deleted
 with their files and log rows. A pre-computed sample job (RIDESAFE_SAMPLE_DIR) is read-only and never
-expires; make one with `python -m ridesafe.jobs --make-sample <video> --out <dir>`.
+expires; make one with `python -m ridesafe.jobs --make-sample <video> --out <dir>` (add --anonymize to blur
+faces and plates before publishing it, see ridesafe.privacy).
 """
 
 import argparse
@@ -308,8 +309,12 @@ class JobManager:
             self.expire()
 
 
-def make_sample(video, out, settings=None):
-    """Run the pipeline on one video and save it as a read-only sample job (RIDESAFE_SAMPLE_DIR)."""
+def make_sample(video, out, settings=None, anonymize=False, credit=None):
+    """Run the pipeline on one video and save it as a read-only sample job (RIDESAFE_SAMPLE_DIR).
+
+    anonymize: then blur faces and plates in what is published (the analysis itself sees the original).
+    credit: where the video comes from (creator, licence), shown with the sample in the web app.
+    """
     import tempfile
     from dataclasses import replace
 
@@ -330,12 +335,16 @@ def make_sample(video, out, settings=None):
         manager.run(job)
         violations = log.violations(job["run_id"])
         log.close()
-        job.update(owner=None, readonly=True, run_id=None)
+        job.update(owner=None, readonly=True, run_id=None, credit=credit)
         manager._save(job)
         (Path(job["dir"]) / "violations.json").write_text(json.dumps(violations, indent=1), encoding="utf-8")
         if out.exists():
             shutil.rmtree(out)
         shutil.copytree(job["dir"], out)
+    if anonymize:
+        from ridesafe.privacy import anonymize_sample
+
+        anonymize_sample(out)
     print(f"Sample job written to {out}: {job['summary']}")
 
 
@@ -343,5 +352,7 @@ if __name__ == "__main__":
     ap = argparse.ArgumentParser(description="Video jobs: make a read-only sample job for the API")
     ap.add_argument("--make-sample", required=True, metavar="VIDEO", help="Video to analyse")
     ap.add_argument("--out", default="samples/demo_job", help="Output folder (RIDESAFE_SAMPLE_DIR)")
+    ap.add_argument("--anonymize", action="store_true", help="Blur faces and number plates (public sample)")
+    ap.add_argument("--credit", help='Source of the video, e.g. "Video: <creator>, Pexels"')
     a = ap.parse_args()
-    make_sample(a.make_sample, a.out)
+    make_sample(a.make_sample, a.out, anonymize=a.anonymize, credit=a.credit)

@@ -40,6 +40,10 @@ RUN pip install --no-deps ./backend && rm -rf backend
 
 COPY configs/thresholds.yaml configs/bytetrack.yaml configs/
 COPY --from=export /build/models/best.onnx /build/models/vehicles.onnx models/
+# Read-only sample job shown to every visitor: faces and plates blurred, plate text masked
+# (python -m ridesafe.jobs --make-sample <video> --out samples/demo_job --anonymize)
+COPY samples/demo_job samples/demo_job
+ENV RIDESAFE_SAMPLE_DIR=/app/samples/demo_job
 
 # Unprivileged user; uploads, job results and the SQLite log live in /data (mount a volume to keep them)
 RUN useradd --create-home --uid 10001 ridesafe && mkdir -p /data && chown ridesafe /data

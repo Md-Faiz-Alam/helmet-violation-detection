@@ -86,6 +86,7 @@ export interface Job {
   readonly: boolean
   editable: boolean
   expires_in_s: number | null
+  credit?: string | null
 }
 
 /** [track id, x1, y1, x2, y2, label at that frame, confidence] */

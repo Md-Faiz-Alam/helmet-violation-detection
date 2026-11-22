@@ -222,6 +222,7 @@ class JobOut(BaseModel):
     readonly: bool = False
     editable: bool = False
     expires_in_s: int | None = None
+    credit: str | None = Field(None, description="Source of the video (the sample), e.g. its creator and licence")
 
 
 class JobCreated(BaseModel):

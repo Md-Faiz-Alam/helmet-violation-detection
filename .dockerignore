@@ -8,4 +8,5 @@ backend/*.egg-info/
 !configs/bytetrack.yaml
 !models/best.pt
 !scripts/export_onnx.py
+!samples/demo_job/
 **/__pycache__/
