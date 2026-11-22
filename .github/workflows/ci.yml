@@ -57,3 +57,26 @@ jobs:
       # The video pipeline and the API run on ONNX Runtime: export the models first
       - run: python scripts/export_onnx.py --vehicles
       - run: pytest -m smoke -v
+
+  docker:
+    name: Docker image (build + container smoke test)
+    needs: lint-and-unit
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+      # Stage 1 exports the models with PyTorch; the final image must not contain it
+      - run: docker build -f backend/Dockerfile -t ridesafe-api:ci .
+      - name: Image size, no PyTorch inside
+        run: |
+          docker image ls ridesafe-api:ci --format 'Image size: {{.Size}}'
+          if docker run --rm ridesafe-api:ci python -c "import torch"; then echo "PyTorch found in the image"; exit 1; fi
+      - name: Start the container and call the API
+        run: |
+          docker run -d --name api -p 8000:8000 -e RIDESAFE_DEMO=true ridesafe-api:ci
+          for i in $(seq 1 60); do curl -fs localhost:8000/health && break; sleep 2; done
+          curl -fs localhost:8000/model
+          curl -fs -F "file=@samples/image1.jpg;type=image/jpeg" localhost:8000/detect | python3 -c "import sys, json; d = json.load(sys.stdin); assert d['without_helmet'] >= 1, d; print(d)"
+      - name: Container logs
+        if: failure()
+        run: docker logs api

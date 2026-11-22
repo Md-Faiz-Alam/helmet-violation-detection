@@ -1,0 +1,16 @@
+# Runtime of the API image (backend/Dockerfile): no PyTorch, headless OpenCV only.
+# rapidocr_onnxruntime is installed separately with --no-deps, because it asks for opencv-python (the GUI
+# build, which needs libGL) while the image uses opencv-python-headless; its other dependencies are below.
+numpy==2.5.5
+onnxruntime==1.32.0
+opencv-python-headless==5.1.0.95
+pyyaml==6.0.3
+lap==0.5.14
+fastapi==0.165.0
+uvicorn==0.54.0
+python-multipart==0.0.34
+# RapidOCR's dependencies (except opencv-python)
+pillow==13.0.0
+pyclipper==1.4.0
+shapely==2.2.0
+six==1.17.0

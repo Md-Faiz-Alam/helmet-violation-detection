@@ -92,6 +92,8 @@ helmet-violation-detection/
 │   └── bytetrack.yaml              # tracker settings, aligned with the tuned thresholds
 ├── backend/                        # the runtime and HTTP API, torch-free (ONNX Runtime)
 │   ├── pyproject.toml              # `ridesafe` package (installed in editable mode by requirements.txt)
+│   ├── Dockerfile                  # API image: ONNX export stage (PyTorch) -> torch-free runtime
+│   ├── requirements-api.txt        # pinned runtime dependencies of the image
 │   ├── ridesafe/
 │   │   ├── api.py                  # FastAPI app: /detect, video jobs, review queue, health, metrics
 │   │   ├── jobs.py                 # async video jobs (worker thread, progress, expiry, sample job)
@@ -133,6 +135,7 @@ helmet-violation-detection/
 ├── tests/                          # tests of the scripts + end-to-end smoke tests
 ├── samples/                        # demo images for the app
 ├── docs/PROJECT_REVIEW_AND_PLAN.md # roadmap
+├── docker-compose.yml              # local API container (docker compose up --build)
 ├── requirements.txt
 ├── requirements-dev.txt            # + pytest, ruff
 ├── ruff.toml / pytest.ini          # lint and test settings
@@ -202,6 +205,13 @@ The API runs on ONNX Runtime without PyTorch ([backend/ridesafe/api.py](backend/
 - `GET /health`, `GET /model`, `GET /metrics` (request counts and latencies, jobs, frames processed).
 
 Uploads are size- and length-limited and deleted with their results after an hour. With `RIDESAFE_DEMO=true` (public demo) visitors see and review only their own uploads (owner token returned by `POST /jobs/video`, sent back as `X-Owner-Token`), plates are partly masked (`MP04 •• 7116`) and plate crops are not served. All settings: [backend/ridesafe/settings.py](backend/ridesafe/settings.py).
+
+### Docker
+```bash
+docker compose up --build                      # API on http://localhost:8000 (RIDESAFE_PORT=8080 for another port)
+docker build -f backend/Dockerfile -t ridesafe-api .   # or just the image
+```
+The image is built in two stages: the first installs PyTorch and Ultralytics only to export `models/best.pt` (and the COCO vehicle model for plate reading) to ONNX; the second contains only ONNX Runtime, headless OpenCV, RapidOCR and FastAPI. It runs as an unprivileged user, keeps uploads and the violation log in `/data` (a volume in `docker-compose.yml`), has a health check, and starts in about 3 s. **Size: 620 MB (259 MB compressed), against 2.27 GB (720 MB compressed) for the PyTorch stage alone.** CI builds it on every push, checks that PyTorch is not inside, and calls `/detect` on the running container.
 
 ### Inference on images
 ```bash
@@ -316,7 +326,7 @@ python scripts/benchmark_onnx.py               # -> reports/onnx_benchmark.md (P
 See [docs/PROJECT_REVIEW_AND_PLAN.md](docs/PROJECT_REVIEW_AND_PLAN.md).
 1. **ML rigor** ✅: threshold tuning, error analysis, dataset audit, model comparison (YOLOv8 / YOLO11 / YOLO26) and class rebalancing
 2. **Video system** ✅: rider tracking with ByteTrack ✅, per-rider violation logic ✅, head-to-vehicle association ✅ (evaluated; not worth it as a false-alarm filter on this data), number-plate OCR ✅ (best effort), video evaluation set ✅, headwear data ✅, SQLite violation log ✅
-3. **Deployment:** ONNX export + benchmark ✅, torch-free package ✅, FastAPI service ✅, Docker, React web app, automatic deploys to Azure, live demo
+3. **Deployment:** ONNX export + benchmark ✅, torch-free package ✅, FastAPI service ✅, Docker ✅, React web app, automatic deploys to Azure, live demo
 
 ---
 

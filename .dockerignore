@@ -1,0 +1,11 @@
+# Docker build context = repository root, but only what backend/Dockerfile copies is sent
+# (data/, results/ and .venv/ alone are several GB).
+*
+!backend/
+backend/tests/
+backend/*.egg-info/
+!configs/thresholds.yaml
+!configs/bytetrack.yaml
+!models/best.pt
+!scripts/export_onnx.py
+**/__pycache__/
