@@ -1,8 +1,8 @@
 # RideSafe AI: Helmet Violation Detection
 
-**Finds two-wheeler riders without a helmet in traffic video, decides once per rider, and queues each violation for a
-person to confirm.** YOLO26 + ByteTrack + plate OCR, served by a torch-free FastAPI service and a React review app,
-deployed on Azure.
+**Finds two-wheeler riders without a helmet in traffic video, makes one decision per rider, and sends each violation
+to a person for review.** Built with YOLO26, ByteTrack and ONNX Runtime; served by a FastAPI service and a React web
+app; deployed on Azure.
 
 [![CI](https://github.com/Md-Faiz-Alam/helmet-violation-detection/actions/workflows/ci.yml/badge.svg)](https://github.com/Md-Faiz-Alam/helmet-violation-detection/actions/workflows/ci.yml)
 [![Live demo](https://img.shields.io/badge/live_demo-open-f5a524.svg)](https://ashy-wave-07c0e0600.8.azurestaticapps.net)
@@ -15,155 +15,195 @@ deployed on Azure.
     <img src="docs/images/demo.webp" width="800" alt="Riders on an Indian highway, each tracked with a box: red for no helmet, green for helmet. Faces and number plates are blurred.">
   </a>
   <br>
-  <sub>The live demo's sample: every rider tracked and decided once. Faces and plates blurred. Video: Aamir Somewhere, Pexels.</sub>
+  <sub>The live demo's sample: every rider is tracked and decided once. Faces and plates blurred. Video: Aamir Somewhere, Pexels.</sub>
 </p>
 
-**[▶ Try the live demo](https://ashy-wave-07c0e0600.8.azurestaticapps.net)**: analyse your own photo or short video,
-or explore the sample. Uploads are deleted after an hour. The API sleeps when idle, so the first request can take
-about 30 s.
+**[▶ Try the live demo](https://ashy-wave-07c0e0600.8.azurestaticapps.net)**: check your own photo or short video,
+or explore the sample. Uploads are deleted after an hour. The server sleeps when idle, so the first request can take
+about 30 seconds.
+
+**Contents:** [Why it exists](#why-it-exists) · [Results](#results) · [How it works](#how-it-works) ·
+[Getting started](#getting-started) · [Usage](#usage) · [Project structure](#project-structure) ·
+[Documentation](#documentation) · [Limitations](#limitations-and-responsible-use) · [License](#license)
 
 ---
 
-## Highlights
+## Why it exists
 
-- **Measured per rider, on real video.** A hand-labelled benchmark of 4 traffic clips (54 riders, 40 violators)
-  scores each rider, not each frame, because that is what a fine is issued for.
-- **A failure found and fixed with data.** The video benchmark showed caps and skullcaps being read as helmets.
-  2,537 extra training images, leak-checked against the test data, raised held-out headwear mAP50 from **0.32 to 0.81**.
-- **No PyTorch in production.** ONNX Runtime and a numpy port of ByteTrack make the same decisions as the PyTorch
-  pipeline about **2× faster on CPU**, in a **620 MB** image instead of 2.27 GB.
-- **A person makes the call.** Every violation waits in a review console with its snapshot, frame votes and plate;
-  nothing is enforced automatically.
-- **Shipped like a product.** Access control, rate limits, signed links, a strict Content-Security-Policy and an audit trail; 96 Python, 6 web and 2
-  end-to-end browser tests;
-  every push to `main` redeploys to Azure, but only after all tests pass.
+Helmet laws are checked by people looking at traffic, and most detection demos stop at boxes on single frames. A
+real system has to answer a different question: **which riders, in this video, broke the rule?** One rider appears
+in hundreds of frames, pedestrians and cyclists are not riders of a motorcycle, and every fine needs evidence that a
+person has checked.
+
+RideSafe AI is built around that question:
+
+- **One decision per rider.** Each head is tracked through the video and judged on all its frames, so one blurry frame
+  does not create a violation and one rider is not logged a hundred times.
+- **Measured the way it is used.** A hand-labelled video benchmark scores each rider, not each frame or box.
+- **A person makes the call.** Every violation waits in a review console with its snapshot, frame votes and number
+  plate; nothing is enforced automatically.
+- **Runs on a CPU.** The models run on ONNX Runtime without PyTorch, about 2× faster, in a 620 MB container.
 
 ## Results
 
-| Evaluation (never used for training or tuning) | Result |
+| Evaluation (data never used for training or tuning) | Result |
 |---|---|
-| Original test set (63 images) | mAP50 **0.937**, no-helmet recall 0.85 |
-| Headwear test set (635 images: caps, turbans, hijabs, masks, rear views) | mAP50 **0.81** (was 0.32) |
-| Video, per rider (4 test clips, 40 violators) | **18 of 40** violators caught, **75%** of logs correct, **0** helmeted riders flagged |
-| CPU speed (Intel i7-7700K) | ~16 FPS tracking video, 97 ms per 640 px image |
+| **Video, per rider** (4 hand-labelled test clips: 54 riders, 40 violators) | **17 of 18** logged violations correct (94%), **17 of 40** violators caught (42%), **no** helmeted rider ever flagged |
+| Photos: original test set (63 images) | mAP50 **0.937**; 85% of heads without a helmet found |
+| Photos: headwear test set (635 images of caps, turbans, hijabs, masks, rear views) | mAP50 **0.81**, up from 0.32 before the extra training data |
+| Speed on a CPU (Intel i7-7700K) | 6-12 analysed video frames per second with every check and plate reading on; under 0.1 s per photo |
 
-The model is YOLO26s, chosen on validation data from 9 trained experiments. Video recall is the weak spot: it ranges
-from 67% on clean highway traffic to 35% at a crowded junction, mostly far-away riders and headwear still read as a
-helmet. Full evaluation, with the experiments, the threshold choice and the error analysis:
-**[docs/EVALUATION.md](docs/EVALUATION.md)**.
+**What this means:** when the system logs a violation it is almost always right, but it misses more than half of the
+violators, mostly riders far from the camera and headwear it still mistakes for a helmet (headscarves, woolly caps).
+It is tuned this way on purpose: a wrong fine is worse than a missed one. With 40 violators the recall estimate is
+uncertain (29-58% at 95% confidence).
+
+The model is YOLO26s, chosen on validation data from 9 trained experiments. The full evaluation, including
+everything that was tried and rejected, is in **[docs/EVALUATION.md](docs/EVALUATION.md)**.
 
 ## How it works
 
 ```mermaid
 flowchart LR
-    A[Video frame] --> B[Detect heads<br/>YOLO26s on ONNX Runtime]
-    B --> C[Track riders<br/>ByteTrack]
-    C --> D[Vote per rider<br/>≥5 frames, ≥60% no-helmet,<br/>on a motorcycle]
-    D -->|rider leaves| E[Log violation<br/>snapshot + SQLite]
-    E --> F[Read plate<br/>RapidOCR, best effort]
-    E --> G[Human review<br/>confirm or reject]
+    A[Video frame] --> B[Detect heads<br/>helmet or no helmet]
+    B --> C[Track each head<br/>ByteTrack]
+    C --> D[Vote over the<br/>rider's frames]
+    D --> E{On a motorcycle?<br/>Already logged?}
+    E -->|new violator| F[Log violation<br/>snapshot + plate]
+    F --> G[Human review<br/>confirm or reject]
 ```
 
-1. **Detect:** the model finds every head and classifies it as helmet or no helmet; tuned thresholds favour catching
-   violators.
-2. **Track:** ByteTrack follows each head across frames, so one rider is one track, not hundreds of detections.
-3. **Decide once:** each frame is a vote; a rider is a violator with at least 5 no-helmet votes making up at least
-   60% of their votes, decided when they leave the frame, and only if their head sits on a motorcycle (a second
-   model checks, so pedestrians and cyclists are not logged). A violator who is hidden for a moment and picked up
-   again at the same place is linked to the first log, not logged twice. Split votes are marked *uncertain* for a
+1. **Detect.** A YOLO26s model finds every head and classifies it as *helmet* or *no helmet*. The confidence
+   thresholds were tuned to favour catching violators.
+2. **Track.** ByteTrack follows each head from frame to frame, so a rider becomes one track instead of hundreds of
+   separate detections.
+3. **Vote.** Every frame is a vote. A rider is a violator when at least 5 frames, and at least 60% of their frames,
+   say *no helmet*. The decision is made when the rider leaves the picture; split votes are marked *uncertain* for a
    reviewer.
-4. **Log and review:** the violation is saved the moment it is decided, with a snapshot and (when readable) the
-   plate, and waits for a person to confirm or reject it.
+4. **Check.** A second, general-purpose model confirms the head sits on a **motorcycle**, so pedestrians and cyclists
+   are not logged. A rider who was hidden for a moment and reappears at the same place is **linked to their first
+   log** instead of being logged twice.
+5. **Log and review.** The violation is saved immediately with a snapshot and, when readable, the number plate, and
+   waits in the review queue for a person to confirm or reject it.
 
-## Architecture
+### Architecture
 
 ```mermaid
 flowchart LR
     U[Browser] --> W[React web app<br/>Azure Static Web Apps]
     U --> API[FastAPI + ONNX Runtime<br/>Azure Container Apps]
-    API --> M[(Models<br/>helmet + vehicle)]
+    API --> M[(ONNX models<br/>helmet + vehicles)]
     API --> L[(SQLite<br/>violation log)]
-    GH[GitHub Actions] -->|tests pass| API
-    GH -->|tests pass| W
+    GH[GitHub Actions] -->|all tests pass| API
+    GH -->|all tests pass| W
 ```
 
 | Layer | Technology |
 |---|---|
-| Model and training | Ultralytics YOLO26s, PyTorch (training only), Kaggle GPU, MLflow |
-| Inference | ONNX Runtime, numpy ByteTrack, OpenCV, RapidOCR |
-| API | FastAPI, async video jobs, SQLite |
+| Model training | Ultralytics YOLO26s, PyTorch (training only), Kaggle GPU |
+| Inference | ONNX Runtime, ByteTrack (ported to numpy), OpenCV, RapidOCR for plates |
+| API | FastAPI, background video jobs, SQLite |
 | Web app | React 19, TypeScript, Vite, Tailwind CSS, TanStack Query, Recharts |
-| Delivery | Docker, GitHub Actions, GitHub Container Registry, Azure Container Apps + Static Web Apps, OIDC |
+| Delivery | Docker, GitHub Actions, GitHub Container Registry, Azure Container Apps and Static Web Apps |
 
-## Quick start
+## Getting started
 
-**Run everything locally with Docker** (no Python or Node needed):
+### Option 1: Docker (the quickest way)
+
+Needs only [Docker](https://docs.docker.com/get-docker/).
+
 ```bash
 git clone https://github.com/Md-Faiz-Alam/helmet-violation-detection.git
 cd helmet-violation-detection
-docker compose up --build        # web app: http://localhost:8080   API docs: http://localhost:8000/docs
+docker compose up --build
 ```
+Open the web app at **http://localhost:8080** and the API documentation at **http://localhost:8000/docs**. The first
+build takes a few minutes, because it converts the model to ONNX.
 
-**Or set up for development:**
+### Option 2: local development
+
+Needs Python 3.13 (3.11+ should work) and, for the web app, Node.js 24.
+
 ```bash
+git clone https://github.com/Md-Faiz-Alam/helmet-violation-detection.git
+cd helmet-violation-detection
 python -m venv .venv
-.venv\Scripts\activate                               # Mac/Linux: source .venv/bin/activate
+.venv\Scripts\activate                       # Mac/Linux: source .venv/bin/activate
 pip install -r requirements-dev.txt
-python scripts/export_onnx.py --vehicles             # once: export the models to ONNX
-uvicorn ridesafe.api:app --port 8000                 # API
-cd frontend && npm install && npm run dev            # web app on http://localhost:5173
+python scripts/export_onnx.py --vehicles     # once: converts the models to ONNX
+
+uvicorn ridesafe.api:app --port 8000         # API on http://localhost:8000/docs
+cd frontend && npm install && npm run dev    # web app on http://localhost:5173 (in a second terminal)
 ```
 
-**Track riders in your own video from the command line:**
+## Usage
+
+**Web app.** *Overview* shows the results and the sample video; *Analyze* checks a photo, or a video with the tracked
+boxes drawn in sync with playback; *Review* lists every violation to confirm or reject (keyboard: J/K to move, C, R,
+U); *Model card* explains the model, its data and its limits.
+
+**HTTP API.**
+```bash
+curl -F "file=@samples/image1.jpg;type=image/jpeg" http://localhost:8000/detect
+```
+returns each head's box, class and confidence. Videos are uploaded to `POST /jobs/video` and analysed in the
+background. The full walkthrough, endpoints and access rules: **[docs/API.md](docs/API.md)**.
+
+**Command line.** Track riders in a video file, a webcam or an IP camera, with the same pipeline and settings as the
+API:
 ```bash
 python scripts/track_video.py --source path/to/video.mp4 --show
 ```
-
-## Using it
-
-- **Web app:** *Overview* (results and the sample), *Analyze* (photo, or video with tracked boxes in sync with
-  playback and a timeline of riders), *Review* (confirm or reject each violation; keys J/K, C, R, U) and *Model card*.
-- **HTTP API:** `POST /detect` for images, `POST /jobs/video` for videos, `GET/PATCH /violations` for the review
-  queue. Endpoints, access rules and settings: **[docs/API.md](docs/API.md)**.
-- **Command line:** image and video tools, webcam and RTSP streams, the violation log, training and evaluation:
-  **[docs/DEVELOPMENT.md](docs/DEVELOPMENT.md)**.
-
-## Documentation
-
-| Guide | What is in it |
-|---|---|
-| [docs/EVALUATION.md](docs/EVALUATION.md) | model selection, headwear data, thresholds, findings, video benchmark, plate accuracy |
-| [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) | setup, project structure, dataset, command-line tools, training, tests |
-| [docs/API.md](docs/API.md) | endpoints, author and visitor access, security, settings |
-| [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) | Docker, Azure architecture, continuous deployment, cost, the anonymised sample |
-| [docs/ROADMAP.md](docs/ROADMAP.md) | what has been built and what comes next |
-| [reports/](reports/README.md) | generated evaluation reports |
+It writes an annotated video, a snapshot per violator and a SQLite violation log. More tools (photos, training,
+evaluation): **[docs/DEVELOPMENT.md](docs/DEVELOPMENT.md)**.
 
 ## Project structure
 
 ```
-backend/ridesafe/   torch-free runtime and API: detector, tracking, plates, video jobs, privacy
+backend/ridesafe/   the runtime and API (no PyTorch): detector, tracking, riding and duplicate checks, plates, jobs
 frontend/           React web app
-scripts/            ML tooling: training, evaluation, data mining, video runs
-configs/            training recipe, experiments, thresholds, tracker settings
-eval/video_gt/      hand-labelled video ground truth
-reports/            generated evaluation reports
-models/best.pt      trained YOLO26s weights
+scripts/            training, evaluation, data preparation and video tools
+configs/            training recipes, experiments, thresholds, tracker settings
+eval/video_gt/      hand-labelled video ground truth and the list of benchmark clips
+reports/            generated evaluation reports (every number in this README comes from one)
+models/best.pt      the trained YOLO26s weights
+samples/            demo photos and the blurred public sample video
 deploy/             one-time Azure setup script
 docs/               guides
 ```
 The full tree is in [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md#project-structure).
 
+## Documentation
+
+| Guide | Read it to |
+|---|---|
+| [EVALUATION.md](docs/EVALUATION.md) | understand the results: data, model choice, the video benchmark, what was tried and rejected |
+| [DEVELOPMENT.md](docs/DEVELOPMENT.md) | set up, use the command-line tools, train and evaluate models, run the tests |
+| [API.md](docs/API.md) | call the API: examples, endpoints, access rules, settings |
+| [DEPLOYMENT.md](docs/DEPLOYMENT.md) | run it in Docker or deploy it to Azure; how releases and security work |
+| [ROADMAP.md](docs/ROADMAP.md) | see what has been built and what comes next |
+| [reports/](reports/README.md) | find the generated report behind any number |
+
+## Testing
+
+Every push runs linting, type checks, 88 unit tests, 8 end-to-end tests with the real models, the web app's tests and
+build, and browser tests (Playwright) against the freshly built Docker container. Code reaches the live site only if
+all of them pass. How to run them locally: [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md#tests-and-lint).
+
 ## Limitations and responsible use
 
-- **Recall:** 18 of 40 violators caught on the test clips. Far-away riders and some headwear (headscarves, face
+- **Missed violators.** 17 of 40 are caught on the test clips. Far-away riders and some headwear (headscarves, face
   scarves, woolly caps) are missed.
-- **Non-riders:** pedestrians standing among riders can be logged; all 6 false logs on the test clips are of this kind.
-- **Small evaluation sets:** 63 test images and 40 video violators, so differences of a few points are noise.
-- **Plates are evidence, not proof:** of 3 readable plates on the highway clip, 1 was read correctly at 1080p and
-  none at 720p.
-- **Personal data:** faces and number plates are personal data. The tool is built to support a human reviewer, not
-  to issue automatic fines. Keep outputs private and blur faces and plates before publishing anything.
+- **People standing in traffic.** A pedestrian standing among moving motorcycles can still be logged (the one false
+  log on the test clips).
+- **Small evaluation sets.** 63 test photos and 40 video violators, so differences of a few points are noise.
+- **Plates are evidence, not proof.** Plate reading is best effort and only some plates are readable at all; a
+  person must check every plate.
+- **Personal data.** Faces and number plates are personal data. The tool supports a human reviewer and does not issue
+  fines. Keep outputs private, and blur faces and plates before publishing anything (the public sample is blurred
+  automatically).
+- **Turbans** are labelled *no helmet*, which is visually true, but Indian law exempts turban-wearing Sikhs: a
+  deployment needs a policy for this, not a blanket rule.
 
 ## Acknowledgements
 
@@ -172,9 +212,9 @@ The full tree is in [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md#project-structure)
 - [Bike Helmet Detection](https://universe.roboflow.com/bike-helmets/bike-helmet-detection-2vdjo/dataset/2) by Syed
   Salman Reza (Public Domain) and [Helmet, Rider, ANPR Detection v12](https://universe.roboflow.com/onlytusik/helmet-rider-anpr-detection/dataset/12)
   by OnlyTusik (CC BY 4.0), on Roboflow Universe
-- Test videos from [Pexels](https://www.pexels.com/) (Pexels license; downloaded by URL, listed in
-  [`eval/video_gt/videos.yaml`](eval/video_gt/videos.yaml)). The public sample is a blurred copy of
-  [a clip by Aamir Somewhere](https://www.pexels.com/video/34395449/).
+- Benchmark videos from [Pexels](https://www.pexels.com/) (Pexels license), listed in
+  [`eval/video_gt/videos.yaml`](eval/video_gt/videos.yaml); the public sample is a blurred copy of
+  [a clip by Aamir Somewhere](https://www.pexels.com/video/34395449/)
 - [RapidOCR](https://github.com/RapidAI/RapidOCR) (PaddleOCR models on ONNX Runtime)
 
 ## License

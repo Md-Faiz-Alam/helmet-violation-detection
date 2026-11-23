@@ -1,15 +1,15 @@
 """Track riders' heads through a video with ByteTrack and flag helmet violations once per rider.
 
     python scripts/track_video.py --source path/to/video.mp4
-    python scripts/track_video.py --source path/to/video.mp4 --show --vid-stride 2   # live window, every 2nd frame
+    python scripts/track_video.py --source path/to/video.mp4 --show                  # live window
     python scripts/track_video.py --source 0                                         # webcam
     python scripts/track_video.py --source rtsp://user:pass@camera-ip/stream         # IP camera
 
 Runs on ONNX Runtime without PyTorch (export the models first: python scripts/export_onnx.py --vehicles).
-The pipeline itself is ridesafe.video, the same code the API runs: each head gets a track ID, and a
-rider is flagged as a violation only after "Without Helmet" wins enough frames (see
-backend/ridesafe/tracking.py), so one bad frame doesn't create a violation, and a rider who stays in
-view is counted once instead of once per frame.
+The pipeline itself is ridesafe.video, the same code the API runs, with the API's defaults (every 2nd frame,
+riding check, duplicate check): each head gets a track ID, and a rider is flagged as a violation only after
+"Without Helmet" wins enough frames (see backend/ridesafe/tracking.py), so one bad frame doesn't create a
+violation, and a rider who stays in view is counted once instead of once per frame.
 
 Every violation is written the moment the rider is decided (crash-safe, readable while a stream runs):
     results/violations.db  SQLite log (runs + violations; plates are filled in by a background thread).
@@ -276,7 +276,8 @@ if __name__ == "__main__":
                     help="Not a violation, but this share of no-helmet votes marks the rider Uncertain")
     ap.add_argument("--finalize-after", type=int, default=30,
                     help="Decide a track after it is unseen for this many processed frames (match track_buffer)")
-    ap.add_argument("--vid-stride", type=int, default=1, help="Process every Nth frame (2-3 speeds up CPU runs)")
+    ap.add_argument("--vid-stride", type=int, default=2,
+                    help="Analyse every Nth frame (2 = the live API's setting; 1 = every frame, slower)")
     ap.add_argument("--max-frames", type=int, default=0, help="Stop after this many processed frames (0 = all)")
     ap.add_argument("--show", action="store_true", help="Show a live window")
     ap.add_argument("--no-video", action="store_true", help="Don't write annotated.mp4")
@@ -287,14 +288,15 @@ if __name__ == "__main__":
     ap.add_argument("--vehicle-model", default="models/vehicles.onnx",
                     help="COCO detector (ONNX) used to find the rider's vehicle")
     ap.add_argument("--db", default="results/violations.db", help="SQLite violation log (created if missing)")
-    ap.add_argument("--riding-check", action="store_true",
-                    help="Only log violations for heads on a motorcycle (not pedestrians, not cyclists)")
+    ap.add_argument("--riding-check", action=argparse.BooleanOptionalAction, default=True,
+                    help="Only log violations for heads on a motorcycle, not pedestrians or cyclists (on, as in the "
+                         "live API; --no-riding-check turns it off)")
     ap.add_argument("--riding-every", type=int, default=2, help="Riding check every Nth processed frame")
     ap.add_argument("--min-ride-ratio", type=float, default=0.5,
                     help="Share of a track's riding checks that must find it on a motorcycle")
-    ap.add_argument("--dedupe-gap", type=int, default=0,
-                    help="Link a new no-helmet track to a violator logged up to this many processed frames earlier "
-                         "at the same place, instead of logging it again (0 = off)")
+    ap.add_argument("--dedupe-gap", type=int, default=60,
+                    help="Link a new no-helmet track to a violator logged up to this many analysed frames earlier "
+                         "at the same place, instead of logging it again (60, as in the live API; 0 = off)")
     ap.add_argument("--no-boxes", action="store_true", help="Don't write track_boxes.csv (long streams)")
     ap.add_argument("--out", default="results/video")
     run(ap.parse_args())

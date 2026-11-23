@@ -1,13 +1,71 @@
 # HTTP API
 
-FastAPI on ONNX Runtime, without PyTorch ([`backend/ridesafe/api.py`](../backend/ridesafe/api.py)). Interactive docs
-are served at `/docs` (live:
-[ridesafe-api…/docs](https://ridesafe-api.blackcliff-76dccd31.uaenorth.azurecontainerapps.io/docs)).
+The API is a FastAPI service running the models on ONNX Runtime, with no PyTorch
+([`backend/ridesafe/api.py`](../backend/ridesafe/api.py)). Interactive documentation, where you can try every endpoint,
+is served at `/docs`: [live API docs](https://ridesafe-api.blackcliff-76dccd31.uaenorth.azurecontainerapps.io/docs)
+(the live API sleeps when idle; the first request can take about 30 s).
+
+**Contents:** [Run it](#run-it) · [Check a photo](#check-a-photo) · [Analyse a video](#analyse-a-video) ·
+[Endpoints](#endpoints) · [Access and security](#access-and-security) · [Settings](#settings)
+
+## Run it
 
 ```bash
 python scripts/export_onnx.py --vehicles       # once: models/best.onnx + models/vehicles.onnx
-uvicorn ridesafe.api:app --port 8000           # http://localhost:8000/docs
+uvicorn ridesafe.api:app --port 8000           # then open http://localhost:8000/docs
 ```
+Or with Docker: `docker compose up --build` (see [DEPLOYMENT.md](DEPLOYMENT.md#docker)).
+
+## Check a photo
+
+```bash
+curl -F "file=@samples/image1.jpg;type=image/jpeg" http://localhost:8000/detect
+```
+```json
+{
+  "width": 416,
+  "height": 416,
+  "latency_ms": 292.5,
+  "with_helmet": 7,
+  "without_helmet": 2,
+  "detections": [
+    {"cls": "With Helmet", "conf": 0.7531, "box": [115.4, 112.8, 143.0, 154.1]},
+    {"cls": "With Helmet", "conf": 0.7289, "box": [198.1, 129.5, 220.1, 167.3]}
+  ]
+}
+```
+Boxes are `[x1, y1, x2, y2]` in image pixels; only detections above the tuned per-class thresholds are returned
+(list shortened here). A photo is one frame: for a decision per rider, use a video.
+
+## Analyse a video
+
+A video is analysed in the background. Send a random `X-Owner-Token` (16-128 characters) with every request: it
+makes you the owner of the upload, so only you (and the author) can see, review or delete it.
+
+```bash
+TOKEN=my-random-owner-token-1234
+API=http://localhost:8000
+
+# 1. Upload: returns 202 with the job, including its "id"
+curl -H "X-Owner-Token: $TOKEN" -F "file=@traffic.mp4" $API/jobs/video
+
+# 2. Poll until "status" is "finished" (also: "queued", "running", "failed"); "progress" counts frames
+curl -H "X-Owner-Token: $TOKEN" $API/jobs/<id>
+
+# 3. Results: every analysed frame's tracked boxes, and one decision per rider
+curl -H "X-Owner-Token: $TOKEN" $API/jobs/<id>/tracks
+
+# 4. The violations logged for this video (snapshot links, votes, plate when read)
+curl -H "X-Owner-Token: $TOKEN" "$API/violations?job_id=<id>"
+
+# 5. Review one: confirm, reject, or set back to pending
+curl -X PATCH -H "X-Owner-Token: $TOKEN" -H "Content-Type: application/json" \
+     -d '{"review_status": "confirmed"}' $API/violations/<violation id>
+```
+In `/jobs/<id>/tracks`, each rider has a `label`: `violation`, `helmet`, `uncertain` (split votes, for a reviewer),
+`not_riding` (a pedestrian), `cyclist` (no helmet rule) or `pending`. A rider linked to an earlier log by the
+duplicate check has `duplicate_of` set. The read-only sample job (when `RIDESAFE_SAMPLE_DIR` is set) is listed for
+everyone.
 
 ## Endpoints
 
@@ -30,14 +88,6 @@ uvicorn ridesafe.api:app --port 8000           # http://localhost:8000/docs
 | GET | `/violations/{id}/snapshot` | the violator's snapshot (JPEG, signed link) | signed link |
 | GET | `/violations/{id}/plate` | the plate crop (JPEG, signed link) | author on the public site |
 
-Example:
-```bash
-curl -F "file=@samples/image1.jpg;type=image/jpeg" http://localhost:8000/detect
-```
-A video job: `POST /jobs/video`, poll `GET /jobs/{id}` until `status` is `finished`, then `GET /jobs/{id}/tracks`
-gives every analysed frame's boxes so a browser can draw them over the original video. The read-only sample job
-(when `RIDESAFE_SAMPLE_DIR` is set) is listed for everyone.
-
 ## Access and security
 
 - **Author:** whoever holds `RIDESAFE_ADMIN_TOKEN`, sent as `Authorization: Bearer <key>` (the web app's
@@ -59,7 +109,8 @@ purpose: it describes the API and grants nothing.
 
 ## Settings
 
-Environment variables, read by [`settings.py`](../backend/ridesafe/settings.py). All are optional.
+Environment variables, read by [`settings.py`](../backend/ridesafe/settings.py). All are optional; the defaults
+suit a local run, and [DEPLOYMENT.md](DEPLOYMENT.md#azure-architecture) lists what the live site sets.
 
 | Variable | Default | Meaning |
 |---|---|---|

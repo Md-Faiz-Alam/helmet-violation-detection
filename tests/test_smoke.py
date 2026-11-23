@@ -51,7 +51,8 @@ def test_track_video_end_to_end(tmp_path):
     clip = tmp_path / "clip.mp4"
     make_clip(clip)
     db = tmp_path / "violations.db"
-    run_script("scripts/track_video.py", "--source", clip, "--no-plates", "--out", tmp_path / "out", "--db", db)
+    run_script("scripts/track_video.py", "--source", clip, "--vid-stride", "1", "--no-plates", "--out", tmp_path / "out",
+               "--db", db)
     run = next((tmp_path / "out").iterdir())
     for name in ("annotated.mp4", "tracks.csv", "track_boxes.csv", "summary.json"):
         assert (run / name).exists(), name

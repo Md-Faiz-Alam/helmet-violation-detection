@@ -43,7 +43,7 @@ helmet-violation-detection/
 │   │   ├── video.py             # video pipeline: detect -> track -> decide -> log
 │   │   ├── detector.py          # OnnxDetector: letterbox, ONNX Runtime, NMS
 │   │   ├── bytetrack.py         # ByteTrack in numpy (parity-tested against Ultralytics)
-│   │   ├── tracking.py          # per-rider voting and the violation rule
+│   │   ├── tracking.py          # per-rider voting, the violation rule, riding and duplicate checks
 │   │   ├── plate_reader.py      # violator's vehicle -> OCR -> plate text (RapidOCR)
 │   │   ├── plates.py            # Indian plate format rules, look-alike fixes, voting
 │   │   ├── association.py       # which vehicle is this head on?
@@ -55,6 +55,8 @@ helmet-violation-detection/
 │   └── requirements-api.txt     # pinned runtime dependencies of the image
 ├── frontend/                    # React + TypeScript web app (Vite, Tailwind, TanStack Query, Recharts)
 │   ├── src/pages/               # Overview, Analyze, JobPage, Review, ModelCard
+│   ├── src/data/evaluation.ts   # the numbers the site shows, copied from reports/
+│   ├── e2e/                     # browser end-to-end tests (Playwright)
 │   └── public/staticwebapp.config.json   # routing, caching and security headers on Azure
 ├── scripts/                     # ML tooling (PyTorch via Ultralytics): train, evaluate, data, video runs
 ├── configs/                     # training recipe, experiments/*.yaml, thresholds.yaml, bytetrack.yaml
@@ -92,7 +94,7 @@ python scripts/download_roboflow.py --workspace bike-helmets --project bike-helm
 ```
 Move the downloaded `train/`, `valid/` and `test/` folders into `data/`; `data/data.yaml` already points to them.
 The extra headwear data comes from the script's default dataset (`python scripts/download_roboflow.py`), cleaned
-and leak-checked by `python scripts/mine_headwear.py` (see [EVALUATION.md](EVALUATION.md#new-data-for-the-headwear-failure)).
+and leak-checked by `python scripts/mine_headwear.py` (see [EVALUATION.md](EVALUATION.md#extra-data-for-the-headwear-failure)).
 The video clips are listed in [`eval/video_gt/videos.yaml`](../eval/video_gt/videos.yaml) and downloaded with
 `python scripts/download_eval_videos.py`.
 
@@ -116,15 +118,19 @@ Annotated images go to `results/detect/run_<timestamp>/`.
 ## Video from the command line
 
 `detect.py` labels every frame on its own, so one rider becomes hundreds of detections. `track_video.py` follows
-each head with ByteTrack and makes **one decision per rider**, using the same torch-free pipeline as the API
-([`backend/ridesafe/video.py`](../backend/ridesafe/video.py)):
+each head with ByteTrack and makes **one decision per rider**. It runs the same torch-free pipeline as the API
+([`backend/ridesafe/video.py`](../backend/ridesafe/video.py)) with the same defaults: every 2nd frame, riding check
+and duplicate check on.
 ```bash
 python scripts/track_video.py --source path/to/video.mp4
-python scripts/track_video.py --source path/to/video.mp4 --show --vid-stride 2   # live window, every 2nd frame
+python scripts/track_video.py --source path/to/video.mp4 --show                  # live window
 python scripts/track_video.py --source 0                                         # webcam
 python scripts/track_video.py --source rtsp://<camera-address>/stream            # IP camera
-python scripts/track_video.py --source path/to/video.mp4 --imgsz 1280             # larger input: finds smaller, far-away heads (slower)
+python scripts/track_video.py --source path/to/video.mp4 --vid-stride 1          # every frame (slower)
+python scripts/track_video.py --source path/to/video.mp4 --imgsz 1280            # larger input: smaller, far-away heads (slower)
 ```
+`--no-riding-check`, `--dedupe-gap 0` and `--no-plates` turn the individual steps off; `python
+scripts/track_video.py --help` lists every option.
 
 **How a violation is decided** ([`tracking.py`](../backend/ridesafe/tracking.py)):
 - One box per head: class-agnostic NMS removes a second box of the other class on the same head (otherwise the
@@ -133,14 +139,20 @@ python scripts/track_video.py --source path/to/video.mp4 --imgsz 1280           
   don't vote, because a half-visible head often looks helmetless.
 - A track is a **violation** if it has at least 5 no-helmet votes **and** they are at least 60% of its votes
   (`--min-frames`, `--min-ratio`). Split votes (≥ 40% no-helmet) are **Uncertain**, for a reviewer.
-- The decision is made **when the rider leaves** (lost for 30 frames, or the video ends), so early frames or an ID
-  switch can't lock in a wrong verdict. Each violation is logged once.
-- On screen: green = helmet, red = violation, orange = uncertain.
+- The decision is made **when the rider leaves** (lost for 30 analysed frames, or the video ends), so early frames
+  or an ID switch can't lock in a wrong verdict.
+- **Riding check:** a second, general-purpose (COCO) model looks for motorcycles and bicycles every 2nd analysed frame
+  while someone has a no-helmet vote. Only a head that sits on a motorcycle in at least half of those checks can be
+  a violator; mostly on a bicycle is a **Cyclist** (no helmet rule), otherwise **Not riding** (a pedestrian).
+- **Duplicate check:** a rider hidden for a moment comes back with a new track ID. A new violator who appears within
+  60 analysed frames, within 1 head height of where an earlier violator was last seen or was heading, at a similar
+  head size, is linked to that first log instead of being logged again.
+- On screen: green = helmet, red = violation, orange = uncertain, grey = not riding / cyclist.
 
 **Number plates (best effort):** for each violator the 5 frames where they are closest to the camera are kept, a
 COCO detector finds their vehicle, RapidOCR reads it, and [`plates.py`](../backend/ridesafe/plates.py) validates the
 Indian format, fixes look-alike characters and votes; a plate is reported only if at least 2 frames agree.
-`--no-plates` turns it off. Accuracy: [EVALUATION.md](EVALUATION.md#number-plates-best-effort).
+`--no-plates` turns it off. Accuracy: [EVALUATION.md](EVALUATION.md#number-plates).
 
 **Outputs** in `results/video/<name>_<timestamp>/`: `annotated.mp4`, `tracks.csv` (one row per track),
 `violations/` (a snapshot per violator, plus the plate crop) and `summary.json`.
@@ -154,8 +166,9 @@ python -m ridesafe.violation_log --run 1    # one run's violations
 For long streams memory stays flat: decided riders are freed, and plates are read in a background thread so OCR
 never pauses the video (`--no-boxes` also skips the per-frame box file).
 
-**Speed** on CPU (i7-7700K, `--vid-stride 2`): about 16 FPS for tracking at 640 px, about 9 FPS with plate reading
-([runtime parity report](../reports/runtime_parity.md)).
+**Speed** on a CPU (Intel i7-7700K, default settings): 6-12 analysed frames per second depending on the scene, with
+the riding check and plate reading on ([test report](../reports/video_eval.md)); about 10-11 with `--no-plates`. The
+tracker alone, without either, runs at about 16 ([runtime parity report](../reports/runtime_parity.md)).
 
 ## Evaluate and analyse
 

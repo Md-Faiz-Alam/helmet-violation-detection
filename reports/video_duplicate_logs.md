@@ -76,5 +76,5 @@ same numbers as the table above.
 The duplicate check stays on in production. Note on method: the test clips have now been used four times in this
 line of work.
 
-_Runs: `scripts/track_video.py --vid-stride 2 --no-plates --riding-check [--dedupe-gap N]`, scored with
+_Runs: `scripts/track_video.py --no-plates [--dedupe-gap N]` (every 2nd frame, riding check on), scored with
 `scripts/eval_video.py` on 2026-11-23 against the corrected validation labels._

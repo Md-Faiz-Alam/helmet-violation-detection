@@ -42,6 +42,6 @@ The ByteTrack port itself is checked against Ultralytics' `BYTETracker` in `test
 (same IDs and boxes on every frame of 4 synthetic sequences with occlusions, weak detections, arrivals and
 departures).
 
-Reproduce: run `scripts/track_video.py` (now ONNX) on the 4 clips with the settings above, score with
-`scripts/eval_video.py`, and compare with the numbers in [video_eval.md](video_eval.md), which were measured
-with the PyTorch pipeline.
+Reproduce: run `scripts/track_video.py --no-riding-check --dedupe-gap 0` (ONNX; the later riding and duplicate checks
+off) on the 4 clips with the settings above and score with `scripts/eval_video.py`. The PyTorch numbers compared
+here were in `video_eval.md` at the time; that report now holds the current live pipeline's result.

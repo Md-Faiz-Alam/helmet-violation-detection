@@ -68,7 +68,7 @@ export default function Overview() {
             tone="accent"
             caption={`mAP50 on 635 held-out headwear images, up from ${headline.headwearMap50Before.toFixed(2)}`}
           />
-          <Stat label="On a CPU" value={`${headline.cpuFpsVideo} FPS`} caption="Tracking, ONNX Runtime, no GPU, no PyTorch" />
+          <Stat label="On a CPU" value={`${headline.cpuFpsVideo} FPS`} caption="Video tracking with every check, no GPU, no PyTorch" />
         </Card>
         <p className="mt-3 text-xs leading-relaxed text-subtle">
           Recall is the weak spot: far-away riders are not tracked and some headwear is still read as a helmet.{' '}

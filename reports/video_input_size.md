@@ -41,5 +41,5 @@ own, so the next choice does not depend on the test clips.
 Caveat: part of the validation labels' boxes came from 1280 px runs, which slightly favours larger inputs in the
 matching (IoU ≥ 0.3); it does not change the decision.
 
-_Runs: `scripts/track_video.py --vid-stride 2 --no-plates [--imgsz N]`, scored with `scripts/eval_video.py` on
-2026-11-22._
+_Runs: `scripts/track_video.py --no-plates --no-riding-check --dedupe-gap 0 [--imgsz N]` (every 2nd frame; the riding
+and duplicate checks did not exist yet), scored with `scripts/eval_video.py` on 2026-11-22._

@@ -210,8 +210,8 @@ export default function ModelCard() {
                 rear views mined from it. 231 images that duplicated our own test data were removed first.
               </p>
               <p>
-                <span className="text-fg">Video benchmark:</span> 8 Pexels clips (4 test, 4 validation); every rider in the
-                4 test clips was labelled by hand and reviewed.
+                <span className="text-fg">Video benchmark:</span> 9 Pexels clips (4 test, 5 validation); every rider in all 9
+                clips was labelled by hand and reviewed.
               </p>
             </div>
           </Section>

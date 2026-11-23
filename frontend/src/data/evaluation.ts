@@ -1,20 +1,21 @@
 /**
  * Numbers shown on the site, copied from the generated reports (update them when a report changes):
  * reports/model_comparison.md, reports/model_comparison_headwear.md, reports/video_eval.md,
- * reports/onnx_benchmark.md, reports/runtime_parity.md and docs/EVALUATION.md.
+ * reports/onnx_benchmark.md and docs/EVALUATION.md. Video speed: track_video.py with --no-plates on the test clips
+ * (about 10 FPS; docs/DEVELOPMENT.md > Speed).
  */
 
 export const REPO_URL = 'https://github.com/Md-Faiz-Alam/helmet-violation-detection'
 export const reportUrl = (file: string) => `${REPO_URL}/blob/main/reports/${file}`
 
 export const headline = {
-  videoRecall: { hit: 18, total: 40 },
-  videoPrecision: { hit: 18, total: 24 },
+  videoRecall: { hit: 17, total: 40 },
+  videoPrecision: { hit: 17, total: 18 },
   helmetedRidersFlagged: 0,
   testMap50: 0.937,
   headwearMap50: 0.81,
   headwearMap50Before: 0.32,
-  cpuFpsVideo: 16,
+  cpuFpsVideo: 10,
   imageMb: 620,
   imageMbTorch: 2270,
 }
@@ -39,10 +40,10 @@ export const headwear = [
   { metric: 'No-helmet recall', before: 0.285, after: 0.763 },
 ]
 
-/** Video benchmark: 4 hand-labelled test clips, scored per rider. */
+/** Video benchmark: 4 hand-labelled test clips, scored per rider, with the live settings (reports/video_eval.md). */
 export const videoClips = [
   { clip: 'Highway riders', conditions: 'Daylight, close traffic', caught: 8, violators: 12 },
-  { clip: 'Pune junction', conditions: 'Dense junction, 1080p', caught: 9, violators: 26 },
+  { clip: 'Pune junction', conditions: 'Dense junction, 1080p', caught: 8, violators: 26 },
   { clip: 'Night fog intersection', conditions: 'Night, fog', caught: 1, violators: 2 },
   { clip: 'High-angle junction', conditions: 'CCTV-like angle', caught: 0, violators: 0 },
 ]
@@ -54,9 +55,9 @@ export const runtime = [
 
 export const limitations = [
   'Far-away riders (heads under about 36 px) are not tracked, so they are never judged.',
-  'People standing among riders can be logged as violators: all 6 false logs on the test clips were non-riders.',
+  'A person standing among moving motorcycles can still be logged (the one false log on the test clips).',
   'Headscarves, face scarves and woolly caps are still sometimes read as helmets on video.',
   'Plate reading is best effort: look-alike digits (4 read as 2) and the plate of a closer bike can be returned.',
-  'One rider can be logged twice after a long occlusion (7 duplicate logs on the test clips).',
-  'Night, rain and CCTV angles are thinly covered; the video benchmark is 4 short clips, so percentages have wide error bars.',
+  'A rider hidden for several seconds can be logged twice (3 duplicate logs on the test clips).',
+  'Night, rain and CCTV angles are thinly covered; the video test set is 4 short clips (40 violators), so percentages have wide error bars.',
 ]

@@ -80,5 +80,5 @@ riders, 34 violators), same runs:
 Note on method: the test clips have now been used twice in this line of work, once to reject 960 alone and once for
 this check. Further choices about the riding check should be made on validation only.
 
-_Runs: `scripts/track_video.py --vid-stride 2 --no-plates [--imgsz N] [--riding-check]`, scored with
-`scripts/eval_video.py` on 2026-11-22, against labels reviewed by the author._
+_Runs: `scripts/track_video.py --no-plates --dedupe-gap 0 [--imgsz N] [--no-riding-check]` (every 2nd frame), scored
+with `scripts/eval_video.py` on 2026-11-22, against labels reviewed by the author._
