@@ -15,6 +15,9 @@ annotation:
     (a standing person, the blue cafe tent, a tempo rider) and 3 keyframes on a standing pedestrian
   annotated_by: Md Faiz Alam (keyframes drafted from tracker boxes with scripts/video_gt_draft.py, corrected by hand)
   reviewed_by: Md Faiz Alam (project owner), 2026-11-22
+  corrections: '2026-11-23, found while checking the duplicate check on test: P5 keyframes 325 and 331 were on the
+    head of her driver (P22) instead of hers; redrawn on her head, read off a pixel grid. The other P5 keyframes
+    were checked and kept; reviewed by Md Faiz Alam (project owner), 2026-11-23: confirmed'
   rules: rider = person on a two-wheeler (driver or pillion); helmet true/false/'unclear'; caps, scarves and headscarves are
     not helmets; keyframes = head boxes [x1, y1, x2, y2] in pixels, keyed by 1-based frame number
 riders:
@@ -69,10 +72,10 @@ riders:
     305: [1159, 581, 1226, 663]
     313: [1043, 576, 1105, 652]
     321: [899, 573, 963, 649]
-    325: [744, 555, 827, 651]
+    325: [833, 573, 890, 648]
     327: [793, 573, 860, 654]
     329: [748, 559, 830, 656]
-    331: [645, 573, 721, 660]
+    331: [730, 573, 788, 648]
     335: [643, 574, 718, 660]
     337: [610, 574, 684, 663]
     347: [425, 575, 499, 663]
