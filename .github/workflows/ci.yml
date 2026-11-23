@@ -195,8 +195,22 @@ jobs:
     timeout-minutes: 15
     permissions:
       contents: read
-      id-token: write  # OIDC sign-in to Azure
+      id-token: write     # OIDC sign-in to Azure
+      deployments: write  # the deployment record on GitHub
     steps:
+      # GitHub's Deployments page and the repository sidebar list each deploy (no effect on Azure; never blocks it)
+      - name: Record the deployment on GitHub
+        id: deployment
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          id=$(jq -n --arg ref "$GITHUB_SHA" '{ref: $ref, environment: "api", description: "API image \($ref[0:7])",
+                   auto_merge: false, required_contexts: [], production_environment: true}' \
+               | gh api "repos/$GITHUB_REPOSITORY/deployments" --input - --jq .id)
+          gh api "repos/$GITHUB_REPOSITORY/deployments/$id/statuses" -f state=in_progress -f log_url="$RUN_URL" >/dev/null
+          echo "id=$id" >> "$GITHUB_OUTPUT"
       - uses: azure/login@7184910d9eb2b1c5e48f7073824a90609bb9b6d6  # v2.3.1
         with:
           client-id: ${{ vars.AZURE_CLIENT_ID }}
@@ -217,6 +231,18 @@ jobs:
           # Scaled to zero: the first request starts a replica (image pull + model load)
           for i in $(seq 1 30); do curl -fsS --max-time 20 "$API_URL/health" && break; sleep 10; done
           curl -fsS "$API_URL/model" | python3 -c "import sys, json; d = json.load(sys.stdin); assert d['demo'], d; print('demo mode on')"
+      - name: Record the deployment result on GitHub
+        if: always() && steps.deployment.outputs.id
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ID: ${{ steps.deployment.outputs.id }}
+          STATE: ${{ job.status == 'success' && 'success' || 'failure' }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          API_URL: ${{ vars.RIDESAFE_API_URL }}
+        run: |
+          gh api "repos/$GITHUB_REPOSITORY/deployments/$ID/statuses" -f state="$STATE" -f log_url="$RUN_URL" \
+            -f environment_url="$API_URL/docs" -F auto_inactive=true >/dev/null
 
   deploy-web:
     name: Deploy web app (Azure Static Web Apps)
@@ -232,7 +258,22 @@ jobs:
       contents: read
       id-token: write       # OIDC sign-in to Azure
       pull-requests: write  # the preview link is posted on the pull request
+      deployments: write    # the deployment record on GitHub (main only)
     steps:
+      # GitHub's Deployments page and the repository sidebar list each deploy (no effect on Azure; never blocks it)
+      - name: Record the deployment on GitHub
+        id: deployment
+        if: github.event_name != 'pull_request'  # previews are linked on the pull request instead
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          id=$(jq -n --arg ref "$GITHUB_SHA" '{ref: $ref, environment: "production", description: "Web app \($ref[0:7])",
+                   auto_merge: false, required_contexts: [], production_environment: true}' \
+               | gh api "repos/$GITHUB_REPOSITORY/deployments" --input - --jq .id)
+          gh api "repos/$GITHUB_REPOSITORY/deployments/$id/statuses" -f state=in_progress -f log_url="$RUN_URL" >/dev/null
+          echo "id=$id" >> "$GITHUB_OUTPUT"
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1  # v7.1.0
         with:
@@ -264,3 +305,16 @@ jobs:
           app_location: frontend/dist
           skip_app_build: true
           skip_api_build: true
+      - name: Record the deployment result on GitHub
+        if: always() && steps.deployment.outputs.id
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ID: ${{ steps.deployment.outputs.id }}
+          STATE: ${{ job.status == 'success' && 'success' || 'failure' }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          host=$(az staticwebapp show -n "$AZURE_STATIC_WEB_APP" -g "$AZURE_RESOURCE_GROUP" \
+                 --query defaultHostname -o tsv 2>/dev/null || true)
+          gh api "repos/$GITHUB_REPOSITORY/deployments/$ID/statuses" -f state="$STATE" -f log_url="$RUN_URL" \
+            ${host:+-f environment_url="https://$host"} -F auto_inactive=true >/dev/null

@@ -70,6 +70,9 @@ manual run (Actions → CI → Run workflow) → deploys both
   change only the RideSafe resource group. The Static Web Apps deployment key is read during the run and never
   saved in GitHub.
 - A docs-only commit deploys nothing.
+- Each deploy from `main` is recorded on GitHub (the repository's Deployments page and sidebar): `production` for
+  the web app, `api` for the API, each with its live link, the commit and the CI run. A failed deploy is recorded
+  as failed. Recording never blocks a deploy and changes nothing on Azure.
 - **Supply chain:** every GitHub Action is pinned to a commit SHA (updated by hand, version in a comment), Python
   dependencies are pinned in the requirements files, and the COCO weights downloaded during the image build are
   checked against their published SHA-256 ([`export_onnx.py`](../scripts/export_onnx.py)).
