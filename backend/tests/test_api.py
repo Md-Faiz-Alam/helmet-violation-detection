@@ -305,7 +305,7 @@ def test_one_client_token_owns_all_its_uploads(make_client, tmp_path):
 
 # ----------------------------------------------------------------------------- robustness
 
-def test_a_failing_job_is_reported_and_the_worker_keeps_going(make_client, tmp_path):
+def test_a_failing_job_is_reported_and_the_worker_keeps_going(make_client, tmp_path, caplog):
     c = make_client()
     real_call = FakeDetector.__call__
     calls = {"n": 0}
@@ -325,6 +325,8 @@ def test_a_failing_job_is_reported_and_the_worker_keeps_going(make_client, tmp_p
     assert failed["status"] == "failed" and "model crashed" in failed["error"]
     run = next(r for r in c.app.state.log.runs() if r["source"] == f"job:{failed['id']}")
     assert run["status"] == "failed"
+    logged = [r for r in caplog.records if r.name == "ridesafe.jobs" and r.levelname == "ERROR"]
+    assert logged and failed["id"] in logged[0].getMessage() and "model crashed" in logged[0].exc_text
     assert wait_finished(c, upload_video(c, clip).json()["job"]["id"])["status"] == "finished"
 
 

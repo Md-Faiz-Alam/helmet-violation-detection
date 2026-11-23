@@ -15,6 +15,7 @@ faces and plates before publishing it, see ridesafe.privacy).
 import argparse
 import hashlib
 import json
+import logging
 import queue
 import secrets
 import shutil
@@ -33,6 +34,7 @@ from ridesafe.video import VideoAnalyzer
 LABELS = {VIOLATION_CLASS: "violation", UNCERTAIN: "uncertain", SAFE_CLASS: "helmet", None: "pending",
           NOT_RIDING: "not_riding", CYCLIST: "cyclist"}
 ACTIVE = ("queued", "running")
+logger = logging.getLogger(__name__)
 
 
 def utc_now():
@@ -222,6 +224,10 @@ class JobManager:
                 self.run(job)
             except Exception as e:  # report it on the job, keep the worker alive
                 stopped = self._stop.is_set()
+                if stopped:
+                    logger.warning("job %s interrupted by shutdown", job["id"])
+                else:
+                    logger.exception("job %s failed", job["id"])
                 if job.get("run_id"):
                     self.log.finish_run(job["run_id"], status="interrupted" if stopped else "failed",
                                         summary={"error": str(e)})
@@ -237,6 +243,8 @@ class JobManager:
                     "runtime": "onnxruntime", "job": job["id"]}
         run_id = self.log.start_run(f"job:{job['id']}", self.s.model, str(d), settings)
         self._update(job, status="running", stage="analyzing", started_at=utc_now(), run_id=run_id)
+        logger.info("job %s started: %d frames at %.1f fps, %dx%d, stride %d", job["id"], job["frames_total"],
+                    job["fps"], job["width"], job["height"], job["vid_stride"])
         analyzer = VideoAnalyzer(self.detector, self.thresholds, d, log=self.log, run_id=run_id,
                                  tracker_config=ByteTrackConfig.from_yaml(self.s.tracker), fps=job["fps"],
                                  vid_stride=job["vid_stride"], plate_reader=self.plate_reader,
@@ -294,6 +302,8 @@ class JobManager:
         self.log.finish_run(run_id, done, fps, summary)
         self._update(job, status="finished", stage="finished", finished_at=utc_now(), summary=summary,
                      processing_fps=fps, progress={"frames_done": frame_idx, "frames_total": frame_idx})
+        logger.info("job %s finished in %.1f s (%s fps): %d riders, %d violations, %d plates read", job["id"], elapsed,
+                    fps, summary["riders"], summary["violations"], summary["plates_read"])
 
     # ------------------------------------------------------------------ expiry
 
@@ -311,7 +321,11 @@ class JobManager:
 
     def _expire_loop(self):
         while not self._stop.wait(60):
-            self.expire()
+            try:  # one failed delete (e.g. a file still open) must not stop expiry for good
+                if n := self.expire():
+                    logger.info("expired %d upload(s)", n)
+            except Exception:
+                logger.exception("upload expiry failed; retrying in 60 s")
 
 
 def make_sample(video, out, settings=None, anonymize=False, credit=None):

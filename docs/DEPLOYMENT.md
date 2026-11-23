@@ -43,7 +43,10 @@ flowchart LR
   live in the API process.
 - **Web app:** Azure Static Web Apps, Free tier, served from a global CDN. Client-side routes, long-lived caching
   for hashed assets and security headers come from
-  [`staticwebapp.config.json`](../frontend/public/staticwebapp.config.json).
+  [`staticwebapp.config.json`](../frontend/public/staticwebapp.config.json). The build adds a
+  Content-Security-Policy that allows scripts and styles only from the site itself (no inline scripts) and network,
+  image and video requests only to the site and the API ([`vite.config.ts`](../frontend/vite.config.ts)), which limits
+  what an injected script could do with the author key held in the tab.
 - **Production settings:** `RIDESAFE_DEMO=true`; the author key and the image-link key as Container Apps secrets;
   `RIDESAFE_TRUSTED_PROXY=true`; uploads deleted after an hour; CORS limited to the web app and its PR previews.
   The full list is in [API.md](API.md#settings).
@@ -54,7 +57,7 @@ Every push to `main` deploys what changed, and only after every test job has pas
 ([`.github/workflows/ci.yml`](../.github/workflows/ci.yml)):
 
 ```
-push to main ── lint, unit, smoke, Docker and web tests must all pass, otherwise nothing deploys
+push to main ── lint, unit, smoke, Docker (with browser end-to-end) and web tests must all pass, otherwise nothing deploys
   ├─ backend/, models/, configs/ or samples/demo_job/ changed
   │     → image pushed to ghcr.io → new Container Apps revision → live health check
   └─ frontend/ changed
@@ -67,6 +70,9 @@ manual run (Actions → CI → Run workflow) → deploys both
   change only the RideSafe resource group. The Static Web Apps deployment key is read during the run and never
   saved in GitHub.
 - A docs-only commit deploys nothing.
+- **Supply chain:** every GitHub Action is pinned to a commit SHA (updated by hand, version in a comment), Python
+  dependencies are pinned in the requirements files, and the COCO weights downloaded during the image build are
+  checked against their published SHA-256 ([`export_onnx.py`](../scripts/export_onnx.py)).
 
 ## One-time Azure setup
 
@@ -122,5 +128,9 @@ az containerapp logs show -n ridesafe-api -g ridesafe-rg --follow          # liv
 az containerapp revision list -n ridesafe-api -g ridesafe-rg -o table      # deployed revisions
 az containerapp replica list -n ridesafe-api -g ridesafe-rg -o table       # running replicas (0 when idle)
 ```
+The API logs one line per event on stdout: startup settings, each job queued / started / finished (with timing and
+counts) or failed (with the traceback), failed plate reads, rejected author keys, rate-limit hits and review changes
+(`RIDESAFE_LOG_LEVEL`, default `INFO`). Uvicorn adds one access line per request.
+
 Uploads and the visitors' violation log live in the replica and are lost when it scales to zero; with the one-hour
 upload lifetime that is intended. The sample is part of the image, so it is always there.

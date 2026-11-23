@@ -10,12 +10,7 @@
       content="RideSafe AI: helmet violation detection for two-wheeler riders. Image and video analysis, per-rider decisions and a review console."
     />
     <title>RideSafe AI</title>
-    <script>
-      // Apply the saved theme before the first paint (no flash of the wrong theme)
-      try {
-        if (localStorage.getItem('ridesafe-theme') === 'light') document.documentElement.classList.remove('dark')
-      } catch (e) {}
-    </script>
+    <script src="/theme-init.js"></script>
   </head>
   <body>
     <div id="root"></div>

@@ -81,3 +81,4 @@ Environment variables, read by [`settings.py`](../backend/ridesafe/settings.py).
 | `RIDESAFE_CORS_ORIGIN_REGEX` | none | also allow origins matching this regex (the web app's PR previews) |
 | `RIDESAFE_URL_SECRET` | random at each start | key that signs image links (set it so links survive restarts) |
 | `RIDESAFE_TRUSTED_PROXY` | `false` | behind a reverse proxy: take the client address from the last `X-Forwarded-For` entry |
+| `RIDESAFE_LOG_LEVEL` | `INFO` | log detail on stdout: `DEBUG`, `INFO` or `WARNING` |

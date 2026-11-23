@@ -13,6 +13,7 @@ SQLite log and a snapshot is saved the moment it is decided; its plate is read i
 from the frames where the rider was closest to the camera, so OCR never pauses the video.
 """
 
+import logging
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
@@ -23,6 +24,8 @@ from ridesafe.association import AssociationRule, associate
 from ridesafe.bytetrack import ByteTrackConfig, ByteTracker
 from ridesafe.plates import BestFrames
 from ridesafe.tracking import SAFE_CLASS, VIOLATION_CLASS, ViolationTracker
+
+logger = logging.getLogger(__name__)
 
 def box_iou(a, b):
     ix = max(0.0, min(a[2], b[2]) - max(a[0], b[0]))
@@ -188,6 +191,7 @@ class VideoAnalyzer:
         try:
             plate = self.plate_reader.read_track(frames, min_agree=self.plate_min_agree) if self.plate_reader else None
         except Exception as e:  # a failed OCR must never stop the tracker
+            logger.warning("plate reading failed for track %d (violation %s)", track_id, violation_id, exc_info=True)
             self.say(f"  Plate reading failed for track #{track_id}: {e}")
             return
         entry = self.logged[key]

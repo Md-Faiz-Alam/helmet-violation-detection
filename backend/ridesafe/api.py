@@ -34,6 +34,7 @@ carry an HMAC signature, so snapshots cannot be fetched by guessing their number
 
 import hashlib
 import hmac
+import logging
 import os
 import secrets
 import shutil
@@ -66,9 +67,19 @@ IMAGE_TYPES = {"image/jpeg", "image/png", "image/webp", "image/bmp"}
 VIDEO_EXTS = {".mp4", ".mov", ".avi", ".mkv", ".webm", ".m4v"}
 CHUNK = 1 << 20
 MIN_ADMIN_TOKEN = 32
+logger = logging.getLogger("ridesafe.api")
 
 
 # ----------------------------------------------------------------------------- setup
+
+def setup_logging():
+    """One line per event on stdout (collected by Docker / Azure Container Apps). Left alone if the host (tests,
+    a custom uvicorn log config) already configured logging. RIDESAFE_LOG_LEVEL: DEBUG / INFO (default) / WARNING."""
+    root = logging.getLogger()
+    if not root.handlers:
+        logging.basicConfig(level=os.environ.get("RIDESAFE_LOG_LEVEL", "INFO").upper(),
+                            format="%(asctime)s %(levelname)s %(name)s: %(message)s")
+
 
 def build_components(settings):
     """Load the models and the log: (detector, violation log, thresholds, plate reader or None)."""
@@ -172,6 +183,7 @@ def get_caller(request: Request, x_owner_token: Annotated[str | None, Header()] 
     if authorization:
         scheme, _, value = authorization.partition(" ")
         if scheme.lower() != "bearer" or not admin_token or not hmac.compare_digest(value.strip(), admin_token):
+            logger.warning("rejected author key from %s", client_address(request))
             raise HTTPException(401, "Invalid author key", headers={"WWW-Authenticate": "Bearer"})
         admin = True
     return Caller(token=x_owner_token, admin=admin, client=client_address(request))
@@ -285,12 +297,19 @@ def create_app(settings=None):
 
     @asynccontextmanager
     async def lifespan(app):
+        setup_logging()
         Path(settings.data_dir).mkdir(parents=True, exist_ok=True)
         detector, log, thresholds, plate_reader = build_components(settings)
         app.state.detector, app.state.log, app.state.thresholds = detector, log, thresholds
         app.state.plates = plate_reader is not None
         app.state.jobs = JobManager(settings, detector, log, thresholds, plate_reader,
                                     vehicle_detector=build_vehicle_detector(settings, plate_reader))
+        logger.info("RideSafe API %s ready: model %s (input %s), plates %s, riding check %s, demo %s, author key %s",
+                    __version__, settings.model, detector.imgsz, "on" if plate_reader else "off",
+                    "on" if app.state.jobs.vehicles is not None else "off", settings.demo,
+                    "set" if settings.admin_token else "not set")
+        if settings.url_secret == "":
+            logger.warning("RIDESAFE_URL_SECRET is not set: image links stop working after a restart")
         yield
         app.state.jobs.close()
         log.close()
@@ -331,6 +350,7 @@ def create_app(settings=None):
             return
         wait = app.state.limiter.check(action, caller.client, limit, window_s)
         if wait:
+            logger.info("rate limit: %s from %s (retry in %d s)", action, caller.client, wait)
             raise HTTPException(429, f"Too many requests; try again in {wait} s", headers={"Retry-After": str(wait)})
 
     def require_author(caller):
@@ -479,6 +499,7 @@ def create_app(settings=None):
             if fps and frames / fps > settings.max_video_seconds:
                 raise HTTPException(422, f"Video too long ({frames / fps:.0f} s, limit {settings.max_video_seconds:g} s)")
             job, token = manager.create(path, Path(file.filename or "video").name, meta, token)
+            logger.info("job %s queued: %.1f MB, %d frames (%s)", job["id"], size / CHUNK, frames, caller.role)
         finally:
             shutil.rmtree(tmp_dir, ignore_errors=True)
         return JobCreated(job=job_out(job, Caller(token, caller.admin, caller.client), manager), owner_token=token)
@@ -542,6 +563,7 @@ def create_app(settings=None):
                                 else "Only the uploader or the author can review this video's violations")
         request.app.state.log.set_review(violation_id, body.review_status, by=caller.role if caller.admin
                                          else "uploader")
+        logger.info("violation %d set to %s by %s", violation_id, body.review_status, caller.role)
         return violation_out(request.app.state.log.violation(violation_id), manager, caller)
 
     def violation_file(violation_id, request, column, sig):

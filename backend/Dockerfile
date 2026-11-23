@@ -18,7 +18,7 @@ RUN pip install --no-cache-dir torch==2.15.0 torchvision==0.29.2 --index-url htt
 WORKDIR /build
 COPY models/best.pt models/best.pt
 COPY scripts/export_onnx.py scripts/export_onnx.py
-# yolo26s.pt (COCO) is downloaded by Ultralytics during the export
+# yolo26s.pt (COCO) is downloaded during the export and checked against its pinned SHA-256 (scripts/export_onnx.py)
 RUN python scripts/export_onnx.py --vehicles \
     && ls -l models
 

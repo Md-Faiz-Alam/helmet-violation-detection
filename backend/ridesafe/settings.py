@@ -24,6 +24,7 @@
     RIDESAFE_URL_SECRET         key that signs image links (default: random at each start)
     RIDESAFE_TRUSTED_PROXY      behind a reverse proxy (nginx, Azure ingress): take the client address from
                                 the last X-Forwarded-For entry, which the proxy itself adds           false
+    RIDESAFE_LOG_LEVEL          log detail on stdout: DEBUG / INFO / WARNING                         INFO
 
 Visitors only ever see and change their own uploads (and the read-only sample), whatever the mode; the
 author, identified by RIDESAFE_ADMIN_TOKEN, can see and change everything and has no rate limits.

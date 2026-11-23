@@ -50,18 +50,20 @@ What has been built, the decisions behind it, and what comes next. Numbers are e
 In order of expected impact:
 
 1. **Video recall.** More than half of violators are still missed, mostly far-away riders (heads under ~36 px) and
-   headwear still read as a helmet (headscarves, face scarves, woolly caps). The 4 validation clips are now labelled
-   (baseline: 12 of 23 violators caught, 75% of logs correct). A larger input (960 px) helped on validation but
-   not on the test clips, where it logged pedestrians in crowds ([report](../reports/video_input_size.md)), so the
-   riding check (item 2) comes first; then retry 960, add more headwear and back-view data, and add a crowded,
-   pedestrian-heavy clip to the validation set.
+   headwear still read as a helmet (headscarves, face scarves, woolly caps). Validation is 5 labelled clips
+   (production: 16 of 34 violators caught, 84% of logs correct, 10 duplicate logs). A larger input (960 px) helped on
+   validation but not on the test clips, where it logged pedestrians in crowds
+   ([report](../reports/video_input_size.md)); next, add more headwear and back-view data, and fix duplicate logs
+   from broken tracks.
 2. **"Is this person riding?"** A per-frame check (head on a motorcycle) is built and helps at 640 (test precision
    78% → 86%, no violator lost: [report](../reports/video_riding_check.md)). Pedestrians standing among the bikes at a
-   crowded junction still pass it; next, check that the person moves *with* the vehicle, then retry 960.
+   crowded junction still pass it. Checking that the person moves *with* the motorcycle was tried and did not work on
+   per-frame boxes (the box jitter is as large as the motion); it needs the motorcycles tracked across frames first.
 3. **Plate reading.** A plate-specific recognizer (for example fast-plate-ocr), measured on the saved plate crops;
    stricter vehicle matching so a rider behind another bike does not get its plate.
-4. **Production hardening.** Error monitoring and alerts, model versioning, and a job queue that survives restarts if
-   the demo ever needs more than one replica.
+4. **Production hardening.** Logging, a Content-Security-Policy, pinned Actions and weights, and browser end-to-end
+   tests are in. Still to do: alerts on failed jobs and errors, model versioning, and a job queue that survives
+   restarts if the demo ever needs more than one replica.
 5. **Optional:** a vision-language model as a second opinion on low-confidence crops, measured for false-alarm
    reduction and cost per call.
 

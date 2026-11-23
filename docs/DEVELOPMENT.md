@@ -200,12 +200,20 @@ the same boxes as PyTorch, 1.25× faster on 640×640 images and about 1.5× on v
 ```bash
 ruff check .          # lint (ruff.toml)
 pyright               # type check (pyrightconfig.json)
-pytest                # 76 unit tests: tracking, ByteTrack, plates, association, detector, API rules, privacy (~15 s, no model)
+pytest                # 84 unit tests: tracking, ByteTrack, plates, association, detector, API rules, privacy (~15 s, no model)
 pytest -m smoke       # 8 end-to-end tests with the real models (~40 s on CPU; export the ONNX models first)
 cd frontend && npm run lint && npm run typecheck && npm test && npm run build
 ```
+Browser tests ([`frontend/e2e/`](../frontend/e2e/), Playwright): the production build, served with the deployed
+Content-Security-Policy, against a running API with the sample job (photo check, sample video, violation snapshots);
+they fail on anything the policy blocks.
+```bash
+RIDESAFE_SAMPLE_DIR=samples/demo_job uvicorn ridesafe.api:app --port 8000     # or the Docker image
+cd frontend && npx playwright install chromium && npm run e2e                 # E2E_API_URL=... for another port
+```
 CI ([`.github/workflows/ci.yml`](../.github/workflows/ci.yml)) runs all of these on every push and pull request,
-plus a Docker image build that checks PyTorch is absent and calls `/detect` on the running container.
+plus a Docker image build that checks PyTorch is absent, calls `/detect` on the running container and runs the
+browser tests against it.
 
 ## Rebuild the public sample
 

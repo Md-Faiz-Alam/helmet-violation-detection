@@ -34,7 +34,8 @@ about 30 s.
   pipeline about **2× faster on CPU**, in a **620 MB** image instead of 2.27 GB.
 - **A person makes the call.** Every violation waits in a review console with its snapshot, frame votes and plate;
   nothing is enforced automatically.
-- **Shipped like a product.** Access control, rate limits, signed links and an audit trail; 84 Python and 6 web tests;
+- **Shipped like a product.** Access control, rate limits, signed links, a strict Content-Security-Policy and an audit trail; 92 Python, 6 web and 2
+  end-to-end browser tests;
   every push to `main` redeploys to Azure, but only after all tests pass.
 
 ## Results

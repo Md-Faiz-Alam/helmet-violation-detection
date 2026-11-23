@@ -11,6 +11,7 @@ training images, so no validation or test image is seen. Compare the files with 
 """
 
 import argparse
+import hashlib
 import os
 import random
 import shutil
@@ -19,14 +20,44 @@ from pathlib import Path
 
 import cv2
 
+# Released weights this script may fetch, pinned by SHA-256 (the digest GitHub publishes for the release asset):
+# a replaced or tampered file fails the export instead of ending up in the API image.
+PINNED_WEIGHTS = {
+    "yolo26s.pt": ("https://github.com/ultralytics/assets/releases/download/v8.4.0/yolo26s.pt",
+                   "646f8bc3fe0a656803d95c294f7852321748cb29d13466a1af8862e2db384a1b"),
+}
+
+
+def sha256(path):
+    h = hashlib.sha256()
+    with open(path, "rb") as f:
+        for block in iter(lambda: f.read(1 << 20), b""):
+            h.update(block)
+    return h.hexdigest()
+
+
+def fetch_pinned(weights):
+    """For a pinned release name (e.g. yolo26s.pt): download it if missing, then check its SHA-256."""
+    name = os.path.basename(weights)
+    if name not in PINNED_WEIGHTS:
+        return
+    url, expected = PINNED_WEIGHTS[name]
+    if not os.path.exists(weights):
+        import urllib.request
+        print(f"Downloading {url}")
+        urllib.request.urlretrieve(url, weights)
+    if (actual := sha256(weights)) != expected:
+        raise SystemExit(f"{weights}: SHA-256 {actual} does not match the pinned {expected}; delete it and retry")
+
 
 def export_fp32(weights, out, imgsz):
     from ultralytics import YOLO
 
     # Ultralytics writes the export next to the weights; export from a temporary copy so an existing
     # models/best.onnx is never overwritten when --out points elsewhere
+    fetch_pinned(weights)
     if not os.path.exists(weights):
-        YOLO(weights)  # a released model name such as yolo26s.pt: Ultralytics downloads it to the working folder
+        raise SystemExit(f"Weights not found: {weights}")
     with tempfile.TemporaryDirectory() as tmp:
         src = shutil.copy(weights, os.path.join(tmp, "model.pt"))
         path = YOLO(src).export(format="onnx", imgsz=imgsz, simplify=True, dynamic=True, verbose=False)
@@ -89,7 +120,7 @@ def export_int8(fp32, out, calib_dir, n):
 def main(args):
     os.makedirs(os.path.dirname(args.out) or ".", exist_ok=True)
     export_fp32(args.weights, args.out, args.imgsz)
-    if args.vehicles:  # the plate reader's vehicle finder (Ultralytics downloads yolo26s.pt if it is missing)
+    if args.vehicles:  # the plate reader's vehicle finder (yolo26s.pt is downloaded and hash-checked if missing)
         export_fp32(args.vehicle_weights, args.vehicle_out, args.imgsz)
     if args.int8:
         export_int8(args.out, args.out.replace(".onnx", ".int8.onnx"), args.calib_dir, args.calib_images)
