@@ -21,6 +21,7 @@ annotation:
     no helmet (never violators); helmet true/false/''unclear''; plate only if a person can read it; keyframes = head boxes
     [x1, y1, x2, y2] in pixels of this resolution, keyed by 1-based frame number; riders whose head is never >= 24 px tall
     are ignored by eval_video.py'
+  corrections: '2026-11-23, found while checking false logs: added R17 (a rider without a helmet late in the clip, keyframes from a tracker run checked by eye); reviewed by Md Faiz Alam (project owner), 2026-11-23: confirmed, none of these riders wears a helmet'
 riders:
 - id: R1
   helmet: true
@@ -163,3 +164,13 @@ riders:
     365: [891, 349, 918, 384]
     407: [878, 310, 913, 357]
     449: [1085, 88, 1154, 182]
+- id: R17
+  helmet: false
+  plate: null
+  description: black jacket, grey hair, motorcycle riding towards the camera late in the clip (missed in the first
+    labelling pass)
+  keyframes:
+    343: [1147, 357, 1184, 401]
+    357: [1157, 345, 1200, 398]
+    369: [1190, 324, 1249, 402]
+    381: [1308, 307, 1386, 413]

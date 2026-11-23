@@ -222,6 +222,8 @@ def save_results(out_dir, args, analyzer, frame_idx, processed, elapsed, setting
             "votes_with_helmet": t.votes.get(SAFE_CLASS, 0),
             "votes_without_helmet": t.votes.get(VIOLATION_CLASS, 0),
             "max_no_helmet_conf": round(t.best_violation_conf, 3),
+            "ride_checks": t.ride_checks,
+            "on_motorcycle": t.on_motorcycle,
             "plate": plate["plate"] if plate else "",
             "plate_conf": plate["conf"] if plate else "",
             "plate_frames": f"{plate['frames_read']}/{plate['frames_tried']}" if plate else "",

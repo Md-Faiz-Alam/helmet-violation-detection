@@ -102,6 +102,13 @@ street, and then on the test clips it kept every violator and raised precision a
 not rescue 960: pedestrians standing among the bikes at a crowded junction still pass a per-frame geometric check.
 Details: [reports/video_riding_check.md](../reports/video_riding_check.md).
 
+**Validation label fixes (2026-11-23).** Looking at the validation false logs showed 2 riders missing from the labels
+(a scooter driver hidden behind his pillion, a rider late in the market clip), 2 keyframes on a pillion's raised hands
+instead of her head, and a gap in one rider's keyframes; each fix is noted in that clip's `annotation.corrections`.
+Validation is now 5 clips, 61 scored riders, 34 violators. Production (640 + riding check) on it: 16 of 34 violators
+caught (47%), 16 of 19 logs correct (84%), 10 duplicate logs; the 2 logs on non-riders are a cycle-rickshaw
+passenger and a pedestrian walking past parked bikes. Earlier reports keep the numbers from the labels at the time.
+
 | Test clip | Scene | Riders (no helmet) | Violation recall | Violation precision |
 |---|---|---|---|---|
 | Highway | daytime, riders facing the camera | 16 (12) | 8/12 | 8/8 |

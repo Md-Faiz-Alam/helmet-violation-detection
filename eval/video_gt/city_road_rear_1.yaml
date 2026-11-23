@@ -22,6 +22,7 @@ annotation:
     no helmet (never violators); helmet true/false/''unclear''; plate only if a person can read it; keyframes = head boxes
     [x1, y1, x2, y2] in pixels of this resolution, keyed by 1-based frame number; riders whose head is never >= 24 px tall
     are ignored by eval_video.py'
+  corrections: '2026-11-23, found while checking false logs: added R20 (the scooter driver in front of pillion R1, keyframes from a tracker run checked by eye); R1 at frames 166 and 181 moved down onto her head (the old boxes sat on her raised hands), read off a pixel grid; reviewed by Md Faiz Alam (project owner), 2026-11-23: confirmed, none of these riders wears a helmet'
 riders:
 - id: R1
   helmet: false
@@ -34,8 +35,8 @@ riders:
     91: [766, 533, 838, 622]
     106: [798, 538, 880, 624]
     151: [919, 524, 966, 584]
-    166: [925, 501, 963, 561]
-    181: [966, 531, 993, 583]
+    166: [930, 543, 975, 590]
+    181: [946, 552, 990, 602]
 - id: R2
   helmet: true
   plate: null
@@ -205,3 +206,13 @@ riders:
     301: [279, 563, 301, 587]
     316: [269, 554, 288, 577]
     331: [270, 548, 291, 572]
+- id: R20
+  helmet: false
+  plate: null
+  description: orange shirt, maroon cloth cap, driver of the scooter carrying R1 (mostly hidden behind her; missed in the
+    first labelling pass)
+  keyframes:
+    29: [584, 487, 640, 579]
+    43: [667, 513, 713, 593]
+    55: [719, 530, 758, 599]
+    69: [768, 538, 804, 605]

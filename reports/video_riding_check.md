@@ -46,6 +46,37 @@ motorcycle (where it boxes one vehicle as both, the more confident box is now ke
   still overrated 960.
 - The remaining false logs and the cyclist log share the same cause: the vehicle check is geometric and per frame.
 
+## Tried and rejected: "does the person move with the motorcycle?"
+
+The idea: a pedestrian standing among the traffic has a motorcycle under their head in many frames, but a rider's
+motorcycle moves *with* the head. Measured on the 5 validation clips (production 640, riding check on), for every
+track with no-helmet votes, over pairs of nearby checks where the head was on a motorcycle:
+
+- **Box overlap after shifting by the head's movement** (pairs 4 source frames apart): real riders score 0.5-0.98,
+  the one pedestrian logged on validation (walking past parked bikes in Lucknow) scores 0.09, 0.59 and 0.67. In
+  4 frames a walker moves too little for a parked bike to look different from his own.
+- **Whole-track mismatch** (how far the motorcycle moved differently from the head, divided by how far either
+  moved): real riders 0.33-1.05, the pedestrian 0.63.
+
+Neither separates them: frame-to-frame jitter of the COCO motorcycle boxes (rear views, partly hidden bikes) is as
+large as the motion being measured. A working version needs the motorcycles themselves tracked (a stable box per
+bike) rather than re-detected per frame. Not shipped; the test clips were not used.
+
+The same look at validation showed that most of the remaining "non-rider" false logs are not pedestrians: of the 6,
+4 are people on motorcycles (2 labelled riders the scoring could not match: one keyframe sat on a pillion's raised
+hands, and one track fell between keyframes; plus a scooter driver and a rider in the Lucknow clip with no label), 1 is a
+cycle-rickshaw passenger and 1 a pedestrian. So validation precision is somewhat understated, and pedestrians are a
+smaller problem on validation than on the crowded Pune test clip.
+
+Those labels were then fixed (2 riders added, 2 keyframes corrected, 3 keyframes added; see each clip's
+`annotation.corrections`). The tables above keep the old labels. Re-scored on the corrected labels (5 clips, 61 scored
+riders, 34 violators), same runs:
+
+| Setting | Riders found | Violation recall | Violation precision | Duplicate logs | False logs (helmet / cyclist / non-rider) |
+|---|---|---|---|---|---|
+| 640 | 36/61 | 16/34 (47%) | 16/22 (73%) | 10 | 0 / 1 / 5 |
+| **640 + riding check** | 36/61 | 16/34 (47%) | **16/19 (84%)** | 10 | 0 / 1 / 2 |
+
 Note on method: the test clips have now been used twice in this line of work, once to reject 960 alone and once for
 this check. Further choices about the riding check should be made on validation only.
 

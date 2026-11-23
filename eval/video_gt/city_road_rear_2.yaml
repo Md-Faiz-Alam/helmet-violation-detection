@@ -18,6 +18,7 @@ annotation:
     no helmet (never violators); helmet true/false/''unclear''; plate only if a person can read it; keyframes = head boxes
     [x1, y1, x2, y2] in pixels of this resolution, keyed by 1-based frame number; riders whose head is never >= 24 px tall
     are ignored by eval_video.py'
+  corrections: '2026-11-23, found while checking false logs: R2 got keyframes 125, 141 and 157 (read off a pixel grid) so a track in that gap can be matched; the existing boxes were checked and kept; reviewed by Md Faiz Alam (project owner), 2026-11-23: confirmed, none of these riders wears a helmet'
 riders:
 - id: R1
   helmet: false
@@ -48,6 +49,9 @@ riders:
     61: [293, 442, 340, 491]
     75: [277, 447, 322, 504]
     109: [225, 469, 269, 516]
+    125: [220, 486, 260, 522]
+    141: [214, 497, 254, 532]
+    157: [216, 509, 254, 542]
     165: [231, 511, 278, 556]
     263: [297, 534, 340, 578]
     339: [310, 541, 356, 594]
