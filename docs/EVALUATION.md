@@ -109,6 +109,14 @@ Validation is now 5 clips, 61 scored riders, 34 violators. Production (640 + rid
 caught (47%), 16 of 19 logs correct (84%), 10 duplicate logs; the 2 logs on non-riders are a cycle-rickshaw
 passenger and a pedestrian walking past parked bikes. Earlier reports keep the numbers from the labels at the time.
 
+**Duplicate check.** A violator hidden for a moment gets a new track ID and was logged again. A track about to be
+logged is now linked to an earlier violator when it starts within about 4 s, within 1 head height of where that
+violator was last seen or was heading, at a similar head size (a driver and pillion, 1.4 head heights apart, stay
+separate). On validation: duplicate logs 10 → 3, precision 84% → 89%, recall unchanged at 16 of 34; chosen on
+validation only. Checked once on test: precision 86% → 94% (3 logs of one man standing in the Pune traffic
+become 1); the scored recall drops 18 → 17, but by inspection that was credit from the pedestrian's track, not a
+violator lost. Details: [reports/video_duplicate_logs.md](../reports/video_duplicate_logs.md).
+
 | Test clip | Scene | Riders (no helmet) | Violation recall | Violation precision |
 |---|---|---|---|---|
 | Highway | daytime, riders facing the camera | 16 (12) | 8/12 | 8/8 |

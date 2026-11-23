@@ -107,7 +107,8 @@ def run(args):
     settings = {"imgsz": detector.imgsz, "thresholds": thresholds, "tracker": args.tracker,
                 "vid_stride": args.vid_stride, "min_frames": args.min_frames, "min_ratio": args.min_ratio,
                 "finalize_after": args.finalize_after, "plates": not args.no_plates, "plate_format": args.plate_format,
-                "riding_check": args.min_ride_ratio if args.riding_check else None, "runtime": "onnxruntime"}
+                "riding_check": args.min_ride_ratio if args.riding_check else None,
+                "dedupe_gap": args.dedupe_gap or None, "runtime": "onnxruntime"}
     log = ViolationLog(args.db)
     run_id = log.start_run(args.source, args.weights, out_dir.resolve(), settings)
 
@@ -134,7 +135,8 @@ def run(args):
                              uncertain_ratio=args.uncertain_ratio, finalize_after=args.finalize_after,
                              plate_reader=plate_reader, plate_frames=args.plate_frames,
                              plate_min_agree=args.plate_min_agree, vehicle_detector=vehicle_detector,
-                             riding_every=args.riding_every, min_ride_ratio=args.min_ride_ratio)
+                             riding_every=args.riding_every, min_ride_ratio=args.min_ride_ratio,
+                             dedupe_gap=args.dedupe_gap or None)
 
     print(f"Source: {args.source} ({src_fps:.1f} FPS{f', {total} frames' if total else ''}) | imgsz {detector.imgsz} | "
           f"thresholds {thresholds} | stride {args.vid_stride} | log: {args.db} (run {run_id})")
@@ -222,6 +224,7 @@ def save_results(out_dir, args, analyzer, frame_idx, processed, elapsed, setting
             "votes_with_helmet": t.votes.get(SAFE_CLASS, 0),
             "votes_without_helmet": t.votes.get(VIOLATION_CLASS, 0),
             "max_no_helmet_conf": round(t.best_violation_conf, 3),
+            "duplicate_of": "" if t.duplicate_of is None else t.duplicate_of,
             "ride_checks": t.ride_checks,
             "on_motorcycle": t.on_motorcycle,
             "plate": plate["plate"] if plate else "",
@@ -289,6 +292,9 @@ if __name__ == "__main__":
     ap.add_argument("--riding-every", type=int, default=2, help="Riding check every Nth processed frame")
     ap.add_argument("--min-ride-ratio", type=float, default=0.5,
                     help="Share of a track's riding checks that must find it on a motorcycle")
+    ap.add_argument("--dedupe-gap", type=int, default=0,
+                    help="Link a new no-helmet track to a violator logged up to this many processed frames earlier "
+                         "at the same place, instead of logging it again (0 = off)")
     ap.add_argument("--no-boxes", action="store_true", help="Don't write track_boxes.csv (long streams)")
     ap.add_argument("--out", default="results/video")
     run(ap.parse_args())

@@ -11,6 +11,8 @@
     RIDESAFE_PLATES             read number plates (needs rapidocr_onnxruntime + the vehicle model)   true
     RIDESAFE_RIDING_CHECK       only heads on a motorcycle can be violators (vehicle model; pedestrians and cyclists
                                 are labelled 'not riding' / 'cyclist')                                  true
+    RIDESAFE_DEDUPE_GAP         a violator lost for up to this many analysed frames and picked up again at the same
+                                place is linked to the first log, not logged twice (0 = off)            60
     RIDESAFE_MAX_IMAGE_MB       upload limit for /detect                    10
     RIDESAFE_MAX_VIDEO_MB       upload limit for /jobs/video                100
     RIDESAFE_MAX_VIDEO_SECONDS  longest video accepted                      120
@@ -55,6 +57,7 @@ class Settings:
     demo: bool = field(default_factory=lambda: _flag("DEMO", True))
     plates: bool = field(default_factory=lambda: _flag("PLATES", True))
     riding_check: bool = field(default_factory=lambda: _flag("RIDING_CHECK", True))
+    dedupe_gap: int = field(default_factory=lambda: int(_env("DEDUPE_GAP", 60)))
     max_image_mb: float = field(default_factory=lambda: float(_env("MAX_IMAGE_MB", 10)))
     max_video_mb: float = field(default_factory=lambda: float(_env("MAX_VIDEO_MB", 100)))
     max_video_seconds: float = field(default_factory=lambda: float(_env("MAX_VIDEO_SECONDS", 120)))

@@ -102,6 +102,8 @@ export interface TrackInfo {
   last_s: number | null
   violation_s: number | null
   votes: { without_helmet: number; with_helmet: number }
+  /** The same violator seen again after being lost for a moment: linked to that track, not logged twice. */
+  duplicate_of?: number | null
 }
 
 export interface Tracks {

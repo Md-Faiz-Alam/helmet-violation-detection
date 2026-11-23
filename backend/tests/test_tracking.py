@@ -159,3 +159,49 @@ def test_helmeted_pedestrian_keeps_its_helmet_label():
     tr.observe_riding(1, None)
     tr.observe_riding(1, None)
     assert tr.label(tr.tracks[1]) == SAFE_CLASS  # only no-helmet tracks are relabelled
+
+
+def moving(tid, start_x, frames, step=4, y=100, h=40, cls=VIOLATION_CLASS):
+    """A head moving right `step` px per frame: list of per-frame detections for one track."""
+    return [[(tid, cls, 0.9, (start_x + i * step, y, start_x + i * step + h, y + h))] for i in range(frames)]
+
+
+def test_a_rider_lost_for_a_moment_is_logged_once():
+    # Track 1 is lost behind a bus for 10 frames; track 2 picks up where its movement was heading
+    tr = ViolationTracker(THR, min_frames=3, finalize_after=5, dedupe_gap=60)
+    feed(tr, moving(1, 0, 20))
+    feed(tr, [[]] * 10, start=21)
+    feed(tr, moving(2, 120, 20), start=31)   # 20 frames x 4 px + 10 hidden frames x 4 px = x 120
+    feed(tr, [[]] * 6, start=51)
+    assert [t.track_id for t in tr.events] == [1]
+    t2 = tr.tracks[2]
+    assert t2.duplicate_of == 1 and not t2.violation and tr.label(t2) == VIOLATION_CLASS
+    assert tr.summary()["riders"] == 1 and tr.summary()["violations"] == 1
+
+
+def test_duplicates_chain_back_to_the_first_log():
+    tr = ViolationTracker(THR, min_frames=3, finalize_after=5, dedupe_gap=60)
+    feed(tr, moving(1, 0, 10) + [[]] * 3 + moving(2, 52, 10) + [[]] * 3 + moving(3, 104, 10) + [[]] * 6)
+    assert [t.track_id for t in tr.events] == [1]
+    assert tr.tracks[2].duplicate_of == 1 and tr.tracks[3].duplicate_of == 1
+
+
+def test_a_different_rider_nearby_is_logged_separately():
+    # A pillion right beside the driver (1.5 head heights), a rider elsewhere, a much smaller (farther) head,
+    # and a rider at the same spot but long after: all logged on their own
+    for second in ([(2, VIOLATION_CLASS, 0.9, (60, 100, 100, 140))],              # 1.5 heads to the right
+                   [(2, VIOLATION_CLASS, 0.9, (400, 300, 440, 340))],            # elsewhere
+                   [(2, VIOLATION_CLASS, 0.9, (0, 100, 15, 115))]):              # 0.375x the head size
+        tr = ViolationTracker(THR, min_frames=3, finalize_after=5, dedupe_gap=60)
+        feed(tr, [[(1, VIOLATION_CLASS, 0.9, (0, 100, 40, 140))]] * 10 + [[]] * 2 + [second] * 10 + [[]] * 6)
+        assert [t.track_id for t in tr.events] == [1, 2], second
+    tr = ViolationTracker(THR, min_frames=3, finalize_after=5, dedupe_gap=20)
+    feed(tr, [[(1, VIOLATION_CLASS, 0.9, (0, 100, 40, 140))]] * 10 + [[]] * 30
+         + [[(2, VIOLATION_CLASS, 0.9, (0, 100, 40, 140))]] * 10 + [[]] * 6)
+    assert [t.track_id for t in tr.events] == [1, 2]
+
+
+def test_duplicate_check_is_off_by_default():
+    tr = ViolationTracker(THR, min_frames=3, finalize_after=5)
+    feed(tr, moving(1, 0, 10) + [[]] * 3 + moving(2, 52, 10) + [[]] * 6)
+    assert [t.track_id for t in tr.events] == [1, 2]

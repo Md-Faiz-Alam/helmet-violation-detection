@@ -200,7 +200,7 @@ the same boxes as PyTorch, 1.25× faster on 640×640 images and about 1.5× on v
 ```bash
 ruff check .          # lint (ruff.toml)
 pyright               # type check (pyrightconfig.json)
-pytest                # 84 unit tests: tracking, ByteTrack, plates, association, detector, API rules, privacy (~15 s, no model)
+pytest                # 88 unit tests: tracking, ByteTrack, plates, association, detector, API rules, privacy (~15 s, no model)
 pytest -m smoke       # 8 end-to-end tests with the real models (~40 s on CPU; export the ONNX models first)
 cd frontend && npm run lint && npm run typecheck && npm test && npm run build
 ```

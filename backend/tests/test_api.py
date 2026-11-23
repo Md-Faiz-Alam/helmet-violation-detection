@@ -210,7 +210,7 @@ def test_video_job_end_to_end(make_client, tmp_path):
     tracks = c.get(f"/jobs/{job_id}/tracks").json()
     assert len(tracks["frames"]) == 20 and tracks["fps"] == pytest.approx(20)
     [(tid, track)] = tracks["tracks"].items()
-    assert track["label"] == "violation" and track["violation_id"] is not None
+    assert track["label"] == "violation" and track["violation_id"] is not None and track["duplicate_of"] is None
     frame_idx, boxes = tracks["frames"][10]
     assert frame_idx == 21 and boxes[0][0] == int(tid) and boxes[0][5] == "violation"
 

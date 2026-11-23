@@ -239,7 +239,7 @@ class JobManager:
         """Analyse one job's video (blocking). Used by the worker and by --make-sample."""
         d = Path(job["dir"])
         settings = {"vid_stride": job["vid_stride"], "thresholds": self.thresholds, "plates": bool(self.plate_reader),
-                    "riding_check": self.vehicles is not None,
+                    "riding_check": self.vehicles is not None, "dedupe_gap": self.s.dedupe_gap or None,
                     "runtime": "onnxruntime", "job": job["id"]}
         run_id = self.log.start_run(f"job:{job['id']}", self.s.model, str(d), settings)
         self._update(job, status="running", stage="analyzing", started_at=utc_now(), run_id=run_id)
@@ -249,7 +249,7 @@ class JobManager:
                                  tracker_config=ByteTrackConfig.from_yaml(self.s.tracker), fps=job["fps"],
                                  vid_stride=job["vid_stride"], plate_reader=self.plate_reader,
                                  caption_plates=not self.s.demo, on_message=None,
-                                 vehicle_detector=self.vehicles)
+                                 vehicle_detector=self.vehicles, dedupe_gap=self.s.dedupe_gap or None)
         cap = cv2.VideoCapture(str(d / job["video"]))
         frames, frame_idx, done = [], 0, 0
         t0 = last_save = time.perf_counter()
@@ -291,7 +291,8 @@ class JobManager:
                 "label": LABELS[tracker.label(t)], "counted": tracker.counted(t), "violation": t.violation,
                 "violation_id": entry["id"] if entry else None, "first_s": to_time(t.first_frame),
                 "last_s": to_time(t.last_frame), "violation_s": to_time(t.first_violation_frame) if t.violation else None,
-                "votes": {"without_helmet": t.votes.get(VIOLATION_CLASS, 0), "with_helmet": t.votes.get(SAFE_CLASS, 0)}}
+                "votes": {"without_helmet": t.votes.get(VIOLATION_CLASS, 0), "with_helmet": t.votes.get(SAFE_CLASS, 0)},
+                "duplicate_of": t.duplicate_of}
         (d / "tracks.json").write_text(json.dumps({
             "fps": job["fps"], "vid_stride": job["vid_stride"], "width": job["width"], "height": job["height"],
             "box_format": ["track_id", "x1", "y1", "x2", "y2", "label", "conf"], "frames": frames, "tracks": tracks},

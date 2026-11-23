@@ -20,8 +20,15 @@ overlapping heads), so no single frame decides anything. Each track collects vot
     (ridesafe.association). A track is then only a violation if it was on a motorcycle in at least
     `min_ride_ratio` of at least `min_ride_checks` checks; mostly on a bicycle is a **Cyclist** (no helmet
     rule for bicycles), too little evidence of riding is **Not riding**. Off (None) by default.
+  * Optional duplicate check (`dedupe_gap`): when a rider is hidden for a moment (behind a bus, a pillion,
+    motion blur) ByteTrack gives them a new ID, and the same violator would be logged twice. A track about to
+    be logged is instead linked to an earlier violator (`duplicate_of`, not logged again) when it starts at
+    most `dedupe_gap` frames after that violator's track ended, within `dedupe_dist` head heights of where
+    it ended or of where its last movement was heading, with a head size within `dedupe_scale` x of its last
+    one. A driver and a pillion sit about 1.4 head heights apart, so they stay separate. Off (None) by default.
 """
 
+from collections import deque
 from dataclasses import dataclass, field
 
 VIOLATION_CLASS = "Without Helmet"
@@ -47,6 +54,9 @@ class TrackState:
     ride_checks: int = 0                             # riding check: frames where it was looked for
     on_motorcycle: int = 0                           # ... and found the head on a motorcycle
     on_bicycle: int = 0                              # ... or on a bicycle
+    first_box: tuple | None = None                   # duplicate check: where the track started
+    recent: deque = field(default_factory=lambda: deque(maxlen=6))  # ... and its last (frame, box) positions
+    duplicate_of: int | None = None                  # ... the logged violator this track continues
 
     @property
     def total_votes(self):
@@ -63,7 +73,8 @@ class ViolationTracker:
     """Accumulates tracked detections frame by frame and decides, per track, who is a violator."""
 
     def __init__(self, thresholds, min_frames=5, min_ratio=0.6, uncertain_ratio=0.4, finalize_after=30,
-                 edge_margin=2, default_threshold=0.25, min_ride_ratio=None, min_ride_checks=2):
+                 edge_margin=2, default_threshold=0.25, min_ride_ratio=None, min_ride_checks=2,
+                 dedupe_gap=None, dedupe_dist=1.0, dedupe_scale=1.4):
         self.thresholds = dict(thresholds or {})
         self.default_threshold = default_threshold
         self.min_frames = min_frames
@@ -72,6 +83,8 @@ class ViolationTracker:
         self.finalize_after = finalize_after
         self.edge_margin = edge_margin
         self.min_ride_ratio, self.min_ride_checks = min_ride_ratio, min_ride_checks
+        self.dedupe_gap, self.dedupe_dist, self.dedupe_scale = dedupe_gap, dedupe_dist, dedupe_scale
+        self.violators = deque(maxlen=50)  # logged violators and their duplicates, for the duplicate check
         self.tracks = {}   # open (and recently finalized) tracks by ID
         self.open = {}     # only the undecided tracks: the per-frame work does not grow with run length
         self.archive = []  # finalized tracks whose ID was later reused
@@ -104,7 +117,7 @@ class ViolationTracker:
     def label(self, t):
         """'Without Helmet' only if the violation rule holds; 'Uncertain' if at least `uncertain_ratio`
         of the votes are no-helmet without meeting the rule; otherwise the majority class (None without votes)."""
-        if (t.finalized and t.violation) or (not t.finalized and self.is_violating(t)):
+        if (t.finalized and (t.violation or t.duplicate_of is not None)) or (not t.finalized and self.is_violating(t)):
             return VIOLATION_CLASS
         if self.min_ride_ratio is not None and t.votes.get(VIOLATION_CLASS, 0):
             ride = self.riding(t)
@@ -126,7 +139,31 @@ class ViolationTracker:
         t.on_bicycle += vehicle == "bicycle"
 
     def counted(self, t):
-        return t.frames_seen >= self.min_frames and t.majority() is not None
+        """A real rider: seen long enough, with votes, and not a duplicate of a rider already counted."""
+        return t.frames_seen >= self.min_frames and t.majority() is not None and t.duplicate_of is None
+
+    def continues(self, t):
+        """The logged violator this track continues (duplicate check), or None."""
+        if self.dedupe_gap is None or t.first_box is None:
+            return None
+        x1, y1, x2, y2 = t.first_box
+        cx, cy, h = (x1 + x2) / 2, (y1 + y2) / 2, y2 - y1
+        for v in reversed(self.violators):
+            gap = t.first_frame - v.last_frame
+            if not 0 < gap <= self.dedupe_gap or not v.recent:
+                continue
+            (f0, b0), (f1, b1) = v.recent[0], v.recent[-1]
+            vh = b1[3] - b1[1]
+            if vh <= 0 or not 1 / self.dedupe_scale <= h / vh <= self.dedupe_scale:
+                continue
+            ex, ey = (b1[0] + b1[2]) / 2, (b1[1] + b1[3]) / 2  # where it was last seen
+            n = max(f1 - f0, 1)  # ... and where its last movement was heading
+            px = ex + ((b1[0] + b1[2]) - (b0[0] + b0[2])) / 2 / n * gap
+            py = ey + ((b1[1] + b1[3]) - (b0[1] + b0[3])) / 2 / n * gap
+            dist = min(((cx - ex) ** 2 + (cy - ey) ** 2) ** 0.5, ((cx - px) ** 2 + (cy - py) ** 2) ** 0.5)
+            if dist <= self.dedupe_dist * vh:
+                return v
+        return None
 
     def _at_edge(self, box, frame_size):
         if not frame_size or not self.edge_margin:
@@ -155,6 +192,9 @@ class ViolationTracker:
                 self.open[track_id] = t
             t.last_frame = frame_idx
             t.frames_seen += 1
+            if t.first_box is None:
+                t.first_box = tuple(box)
+            t.recent.append((frame_idx, tuple(box)))
 
             if conf < self.threshold(cls_name) or self._at_edge(box, frame_size):
                 continue  # tracked, but this frame doesn't vote
@@ -174,13 +214,18 @@ class ViolationTracker:
 
     def _finalize(self, tracks):
         logged = []
-        for t in tracks:
+        for t in sorted(tracks, key=lambda t: t.last_frame):  # earlier tracks first: the duplicate check needs them
             t.finalized = True
             self.open.pop(t.track_id, None)
             t.violation = self.counted(t) and self.is_violating(t)
+            if t.violation and (earlier := self.continues(t)) is not None:
+                t.violation = False  # the same violator again: linked, not logged twice
+                t.duplicate_of = earlier.duplicate_of if earlier.duplicate_of is not None else earlier.track_id
             if t.violation:
                 self.events.append(t)
                 logged.append(t)
+            if t.violation or t.duplicate_of is not None:
+                self.violators.append(t)
         return logged
 
     # ------------------------------------------------------------------ counts

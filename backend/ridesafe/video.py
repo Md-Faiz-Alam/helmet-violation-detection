@@ -62,7 +62,7 @@ class VideoAnalyzer:
     def __init__(self, detector, thresholds, out_dir, *, log=None, run_id=None, tracker_config=None, fps=0.0,
                  vid_stride=1, min_frames=5, min_ratio=0.6, uncertain_ratio=0.4, finalize_after=30,
                  plate_reader=None, plate_frames=5, plate_min_agree=2, caption_plates=True, on_message=print,
-                 vehicle_detector=None, riding_every=2, min_ride_ratio=0.5, min_ride_checks=2):
+                 vehicle_detector=None, riding_every=2, min_ride_ratio=0.5, min_ride_checks=2, dedupe_gap=None):
         """vehicle_detector: a COCO OnnxDetector; when given, the riding check is on (ridesafe.tracking): every
         `riding_every` processed frames, heads are matched to the motorcycles and bicycles in the frame, and only
         tracks on a motorcycle in at least `min_ride_ratio` of their checks can be violations."""
@@ -72,7 +72,7 @@ class VideoAnalyzer:
         self.tracker = ViolationTracker(thresholds, min_frames=min_frames, min_ratio=min_ratio,
                                         uncertain_ratio=uncertain_ratio, finalize_after=finalize_after,
                                         min_ride_ratio=min_ride_ratio if vehicle_detector else None,
-                                        min_ride_checks=min_ride_checks)
+                                        min_ride_checks=min_ride_checks, dedupe_gap=dedupe_gap)
         self.vehicles, self.riding_every = vehicle_detector, riding_every
         if vehicle_detector:
             self.two_wheelers = {i: n for i, n in vehicle_detector.names.items() if n in ("motorcycle", "bicycle")}

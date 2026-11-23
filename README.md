@@ -34,7 +34,7 @@ about 30 s.
   pipeline about **2× faster on CPU**, in a **620 MB** image instead of 2.27 GB.
 - **A person makes the call.** Every violation waits in a review console with its snapshot, frame votes and plate;
   nothing is enforced automatically.
-- **Shipped like a product.** Access control, rate limits, signed links, a strict Content-Security-Policy and an audit trail; 92 Python, 6 web and 2
+- **Shipped like a product.** Access control, rate limits, signed links, a strict Content-Security-Policy and an audit trail; 96 Python, 6 web and 2
   end-to-end browser tests;
   every push to `main` redeploys to Azure, but only after all tests pass.
 
@@ -69,7 +69,9 @@ flowchart LR
 2. **Track:** ByteTrack follows each head across frames, so one rider is one track, not hundreds of detections.
 3. **Decide once:** each frame is a vote; a rider is a violator with at least 5 no-helmet votes making up at least
    60% of their votes, decided when they leave the frame, and only if their head sits on a motorcycle (a second
-   model checks, so pedestrians and cyclists are not logged). Split votes are marked *uncertain* for a reviewer.
+   model checks, so pedestrians and cyclists are not logged). A violator who is hidden for a moment and picked up
+   again at the same place is linked to the first log, not logged twice. Split votes are marked *uncertain* for a
+   reviewer.
 4. **Log and review:** the violation is saved the moment it is decided, with a snapshot and (when readable) the
    plate, and waits for a person to confirm or reject it.
 

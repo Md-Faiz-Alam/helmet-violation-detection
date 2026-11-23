@@ -43,6 +43,8 @@ What has been built, the decisions behind it, and what comes next. Numbers are e
 - A public sample with faces and number plates blurred automatically.
 - A riding check in the live pipeline: only riders on a motorcycle can be violators, so pedestrians and cyclists are
   not logged (test precision 78% → 86% with no violator lost).
+- A duplicate check: a violator hidden for a moment and picked up again at the same place is linked to the first
+  log instead of being logged again (validation duplicates 10 → 3, no violator lost).
 - Retired the original Streamlit demo; the React app and the API replace it.
 
 ## Next
@@ -51,10 +53,10 @@ In order of expected impact:
 
 1. **Video recall.** More than half of violators are still missed, mostly far-away riders (heads under ~36 px) and
    headwear still read as a helmet (headscarves, face scarves, woolly caps). Validation is 5 labelled clips
-   (production: 16 of 34 violators caught, 84% of logs correct, 10 duplicate logs). A larger input (960 px) helped on
-   validation but not on the test clips, where it logged pedestrians in crowds
-   ([report](../reports/video_input_size.md)); next, add more headwear and back-view data, and fix duplicate logs
-   from broken tracks.
+   (production: 16 of 34 violators caught, 89% of logs correct, 3 duplicate logs after the duplicate check:
+   [report](../reports/video_duplicate_logs.md)). A larger input (960 px) helped on validation but not on the test
+   clips, where it logged pedestrians in crowds ([report](../reports/video_input_size.md)); next, add more headwear
+   and back-view data.
 2. **"Is this person riding?"** A per-frame check (head on a motorcycle) is built and helps at 640 (test precision
    78% → 86%, no violator lost: [report](../reports/video_riding_check.md)). Pedestrians standing among the bikes at a
    crowded junction still pass it. Checking that the person moves *with* the motorcycle was tried and did not work on
